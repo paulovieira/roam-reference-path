@@ -11,7 +11,7 @@ This extension can be installed using Roam Depot. It doesn't manipulate your not
 
 Demo:
 
-![demo](https://user-images.githubusercontent.com/2184309/179632500-72cc8496-6e40-4c71-bcf9-07ef700de164.jpg)
+![demo](https://user-images.githubusercontent.com/2184309/181002570-776c715d-c79f-4a03-afa1-1938c5a0a7b4.jpg)
 
 ## Future improvements
 
