@@ -1,0 +1,17 @@
+/* TODO: rename class to roam-reference-path-highlighted */
+
+.reference-path .rm-bullet .rm-bullet__inner,
+.reference-path .rm-bullet .rm-bullet__inner--user-icon {
+    /*background-color: #667eea !important;  /*#ed8936*/
+    /*background-color: green;*/
+    background-color: var(--reference-path-color, red);
+    transform: scale(var(--reference-path-scale-factor, 1));
+}
+
+.reference-path-important .rm-bullet .rm-bullet__inner,
+.reference-path-important .rm-bullet .rm-bullet__inner--user-icon {
+    /*background-color: #667eea !important;  /*#ed8936*/
+    /*background-color: green;*/
+    background-color: var(--reference-path-color, red) !important;
+    transform: scale(var(--reference-path-scale-factor, 1)) !important;
+}
