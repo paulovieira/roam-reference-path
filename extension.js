@@ -206,11 +206,25 @@ function addReferencePath(el) {
 		// class names in the future, and we would be have a reference error)
 
 		if (bullet != null) {
+			bullet.classList.add(internals.settingsCached.cssClass);
 			bullet.style.setProperty('--reference-path-scale-factor', internals.settingsCached.scaleFactor);
 			bullet.style.setProperty('--reference-path-color', internals.settingsCached.colorHex);
-			bullet.classList.add(internals.settingsCached.cssClass);
 
 			bulletList.push(bullet);      
+
+			if (bulletList.length >= 2) {
+				//let currrentBullet = bulletList[bulletList.length - 1]
+				
+				let bboxPrevious = bulletList[bulletList.length - 2].getBoundingClientRect()
+				let bboxCurrent = bulletList[bulletList.length - 1].getBoundingClientRect()
+
+				let width = bboxPrevious.x - bboxCurrent.x;
+				bullet.style.setProperty('--reference-path-width', `${width}px`);
+
+				let height = bboxPrevious.y - bboxCurrent.y;
+				bullet.style.setProperty('--reference-path-height', `${height}px`);
+				bullet.style.setProperty('--reference-path-border-width', '1px');
+			}
 		}
 
 		// go up in the tree
@@ -231,6 +245,7 @@ function removeReferencePath(bulletList) {
 
 	for (let idx = 0; idx < bulletList.length; idx++) {
 		let bullet = bulletList[idx];
+		bullet.style.setProperty('--reference-path-border-width', '0');
 		bullet.classList.remove(internals.settingsCached.cssClass)
 	}
 
@@ -273,18 +288,15 @@ function main (selector) {
 		// first-pass: if there mutations relative to leaving edit mode, remove any eventual existing 
 		// reference path (added in some previous mutation)
 
-		// for (let idx = 0; idx < mutationList.length; idx++) {
-		// 	let m = mutationList[idx];
+		for (let idx = 0; idx < mutationList.length; idx++) {
+			let m = mutationList[idx];
 
-		// 	if (m.removedNodes.length === 0 || m.removedNodes[0].querySelector(internals.selectorForTextarea) == null) {
-		// 		continue;
-		// 	}
-
-		// 	removeReferencePath(bulletList);
-		// 	break;
-		// }
-
-		// bulletList = [];  // help GC
+			if (m.removedNodes.length > 0 && m.removedNodes[0].querySelector(internals.selectorForTextarea) != null) {
+				removeReferencePath(bulletList);
+				bulletList = [];  // help GC
+				break;
+			}
+		}
 
 		// second-pass: if there mutations relative to entering edit mode, add the reference path relative to the active block
 
@@ -297,8 +309,9 @@ function main (selector) {
 
 				textareaEl.addEventListener('focusout', ev => { 
 					console.log('focusout @ ' + Date.now())
-					removeReferencePath(bulletList) 
-					bulletList = [];  // help GC
+					// removeReferencePath(bulletList) 
+					// bulletList = [];  // help GC
+					// TODO: detect the case where we open the pallete, in which case the focus is lost and never recovered
 				});
 
 				break;

@@ -15,3 +15,20 @@
     background-color: var(--reference-path-color, red) !important;
     transform: scale(var(--reference-path-scale-factor, 1)) !important;
 }
+
+.reference-path .bp3-popover-target::before {
+    content: "";
+    position: absolute;
+    top: 9px;   /* TODO:  ;scale: 1.5 => top: 9px; scale: 2 => top: 10px; */
+    left: 6px;
+    width: var(--reference-path-width); 
+    height: var(--reference-path-height);
+    border-width: var(--reference-path-border-width);
+    border-style: solid;
+    border-color:  var(--reference-path-color, red);
+    border-right: none;
+    border-top: none;
+    border-bottom-left-radius: 2px;
+    pointer-events: none;
+    z-index: 11 !important;
+}
