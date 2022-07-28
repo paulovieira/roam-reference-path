@@ -256,11 +256,12 @@ function main (selector) {
 
 	let observerCallback = function observerCallback (mutationList, observer) {
 
-		// console.log('--------')
-		// console.log('observerCallback')
-		// console.log('--------')
+		console.log('--------')
+		console.log('observerCallback')
+		console.log('--------')
 
-		// console.log({ 'mutationList.length': mutationList.length })
+		console.log({ 'mutationList.length': mutationList.length })
+		window.mutationList = mutationList;
 
 
 		// return early for the common case of typing in the active block (edit mode)
@@ -272,30 +273,36 @@ function main (selector) {
 		// first-pass: if there mutations relative to leaving edit mode, remove any eventual existing 
 		// reference path (added in some previous mutation)
 
-		for (let idx = 0; idx < mutationList.length; idx++) {
-			let m = mutationList[idx];
+		// for (let idx = 0; idx < mutationList.length; idx++) {
+		// 	let m = mutationList[idx];
 
-			if (m.removedNodes.length === 0 || m.removedNodes[0].querySelector(internals.selectorForTextarea) == null) {
-				continue;
-			}
+		// 	if (m.removedNodes.length === 0 || m.removedNodes[0].querySelector(internals.selectorForTextarea) == null) {
+		// 		continue;
+		// 	}
 
-			removeReferencePath(bulletList);
-			break;
-		}
+		// 	removeReferencePath(bulletList);
+		// 	break;
+		// }
 
-		bulletList = [];  // help GC
+		// bulletList = [];  // help GC
 
 		// second-pass: if there mutations relative to entering edit mode, add the reference path relative to the active block
 
+		let textareaEl;
 		for (let idx = 0; idx < mutationList.length; idx++) {
 			let m = mutationList[idx];
 
-			if (m.addedNodes.length === 0 || m.addedNodes[0].querySelector(internals.selectorForTextarea) == null) {
-				continue;   
-			}
+			if (m.addedNodes.length > 0 && (textareaEl = m.addedNodes[0].querySelector(internals.selectorForTextarea)) != null) {
+				bulletList = addReferencePath(m.addedNodes[0]);
 
-			bulletList = addReferencePath(m.addedNodes[0]);
-			break;
+				textareaEl.addEventListener('focusout', ev => { 
+					console.log('focusout @ ' + Date.now())
+					removeReferencePath(bulletList) 
+					bulletList = [];  // help GC
+				});
+
+				break;
+			}
 		}
 	};
 
