@@ -172,11 +172,11 @@ function getColorHex(color, colorShade) {
 	if (!settingsAreStrings) { return '' }
 
 	color = color.split('(')[0].trim();  // strip the '(' from the grays
-	let tailwindClass = `text-${color}-${colorShade}`;
+	let tailwindColorClass = `text-${color}-${colorShade}`;
 	let dummySpan = document.createElement('span');
 
 	dummySpan.style.display = 'none';
-	dummySpan.classList.add(tailwindClass);
+	dummySpan.classList.add(tailwindColorClass);
 	document.body.appendChild(dummySpan);
 	let colorHex = window.getComputedStyle(dummySpan).color;
 	dummySpan.remove();
@@ -212,17 +212,27 @@ function addReferencePath(el) {
 			bulletList.push(bullet);      
 
 			if (bulletList.length >= 2) {
-				//let currrentBullet = bulletList[bulletList.length - 1]
-				
-				let bboxPrevious = bulletList[bulletList.length - 2].getBoundingClientRect()
-				let bboxCurrent = bulletList[bulletList.length - 1].getBoundingClientRect()
+				// note that --reference-path-border-width must be set to 0 when 
+				// the reference path is removed, so we must set again here
 
-				let width = bboxPrevious.x - bboxCurrent.x;
+				bullet.style.setProperty('--reference-path-border-width', '1px');
+
+				let bbox = bullet.getBoundingClientRect()
+
+				let bulletPrevious = bulletList[bulletList.length - 2];
+				let bboxPrevious = bulletPrevious.getBoundingClientRect()
+
+				// we have bboxPrevious.x > bbox.x because bulletPrevious is 
+				// to the right of bullet (it has "higher" indentation)
+				
+				let width = bboxPrevious.x - bbox.x;
 				bullet.style.setProperty('--reference-path-width', `${width}px`);
 
-				let height = bboxPrevious.y - bboxCurrent.y;
+				// similar remarks for y (bulletPrevious below bullet);
+				// reference: https://developer.mozilla.org/en-US/docs/Web/API/Element/getBoundingClientRect
+
+				let height = bboxPrevious.y - bbox.y;
 				bullet.style.setProperty('--reference-path-height', `${height}px`);
-				bullet.style.setProperty('--reference-path-border-width', '1px');
 			}
 		}
 
