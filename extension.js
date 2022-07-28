@@ -10,9 +10,11 @@ internals.extensionAPI = null;
 internals.settingsCached = {
 	color: null,
 	colorShade: null,
-	colorHex: null,
 	scaleFactor: null,
-	important: null
+	important: null,
+
+	colorHex: null,  // computed from color and colorShade
+	cssClass: null  // computed from important
 };
 
 internals.settingsDefault = {
@@ -129,19 +131,24 @@ function createSettingsPanel() {
 
 	panel.create(panelConfig);
 
-	// if necessary use the values from the default settings to initialize the panel
+	
 
 	let keys = panelConfig.settings.map(o => o.id);
+
+	// compute the cached settings
 
 	keys.forEach(key => {
 
 		let value = get(key);
 
+		// if necessary use the values from the default settings to initialize the panel
+
 		if (value == null) {
-			value = internals.settingsDefault[key]
+			value = internals.settingsDefault[key];
+			set(key, value);
 		}
 
-		set(key, value);
+		
 		updateSettingsCached({ [key]: value });
 	});
 
@@ -152,7 +159,8 @@ function updateSettingsCached(optionsToMerge = {}) {
 	// console.log('updateSettingsCached')
 
 	Object.assign(internals.settingsCached, optionsToMerge);
-	internals.settingsCached['colorHex'] = getColorHex(internals.settingsCached['color'], internals.settingsCached['colorShade'])
+	internals.settingsCached.colorHex = getColorHex(internals.settingsCached.color, internals.settingsCached.colorShade);
+	internals.settingsCached.cssClass = internals.settingsCached.important ? 'reference-path-important' : 'reference-path';
 
 	// console.log('internals.settingsCached', internals.settingsCached)
 }
@@ -165,11 +173,11 @@ function getColorHex(color, colorShade) {
 	if (!settingsAreStrings) { return '' }
 
 	color = color.split('(')[0].trim();  // strip the '(' from the grays
-	let cssClass = `text-${color}-${colorShade}`;
+	let tailwindClass = `text-${color}-${colorShade}`;
 	let dummySpan = document.createElement('span');
 
 	dummySpan.style.display = 'none';
-	dummySpan.classList.add(cssClass);
+	dummySpan.classList.add(tailwindClass);
 	document.body.appendChild(dummySpan);
 	let colorHex = window.getComputedStyle(dummySpan).color;
 	dummySpan.remove();
@@ -198,11 +206,9 @@ function addReferencePath(el) {
 		// class names in the future, and we would be have a reference error)
 
 		if (bullet != null) {
-			let cssClass = internals.settingsCached.important ? 'reference-path-important' : 'reference-path';
-
 			bullet.style.setProperty('--reference-path-scale-factor', internals.settingsCached.scaleFactor);
 			bullet.style.setProperty('--reference-path-color', internals.settingsCached.colorHex);
-			bullet.classList.add(cssClass);
+			bullet.classList.add(internals.settingsCached.cssClass);
 
 			bulletList.push(bullet);      
 		}
@@ -225,8 +231,7 @@ function removeReferencePath(bulletList) {
 
 	for (let idx = 0; idx < bulletList.length; idx++) {
 		let bullet = bulletList[idx];
-		let cssClass = internals.settingsCached.important ? 'reference-path-important' : 'reference-path';
-		bullet.classList.remove(cssClass)
+		bullet.classList.remove(internals.settingsCached.cssClass)
 	}
 
 }
