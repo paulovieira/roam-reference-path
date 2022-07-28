@@ -216,30 +216,27 @@ function addReferencePath(el) {
 
 }
 
-function removeReferencePath(bulletsListList) {
+function removeReferencePath(bulletList) {
 
 	console.log('removeReferencePath @ ' + Date.now())
 	// console.log('  ', { 'bulletsListList.length': bulletsListList.length })
 
 	// use plain for loops and inline code for maximum performance
 
-	for (let idx = 0; idx < bulletsListList.length; idx++) {
-		let bulletList = bulletsListList[idx];
-
-		for (let idx2 = 0; idx2 < bulletList.length; idx2++) {
-			let bullet = bulletList[idx2];
-			let cssClass = internals.settingsCached.important ? 'reference-path-important' : 'reference-path';
-			bullet.classList.remove(cssClass)
-		}
+	for (let idx = 0; idx < bulletList.length; idx++) {
+		let bullet = bulletList[idx];
+		let cssClass = internals.settingsCached.important ? 'reference-path-important' : 'reference-path';
+		bullet.classList.remove(cssClass)
 	}
+
 }
 
 function isMutationForTyping(mutation) {
 
-  return true
-    && mutation.target.tagName === 'TEXTAREA'
-    && mutation.addedNodes.length === 1
-    && mutation.addedNodes[0].nodeName === '#text';
+	return true
+		&& mutation.target.tagName === 'TEXTAREA'
+		&& mutation.addedNodes.length === 1
+		&& mutation.addedNodes[0].nodeName === '#text';
 }
 
 function main (selector) {
@@ -248,7 +245,7 @@ function main (selector) {
 
 	if (rootEl == null) { return }
 
-	let bulletListList = [];  // array of arrays
+	let bulletList = [];  // array of nodes
 
 	// reference: https://developer.mozilla.org/en-US/docs/Web/API/MutationObserver/MutationObserver
 
@@ -277,12 +274,11 @@ function main (selector) {
 				continue;
 			}
 
-			// bulletListList is an array of arrays (see bulletListList.push() in the second-pass)
-
-			removeReferencePath(bulletListList);
+			removeReferencePath(bulletList);
+			break;
 		}
 
-		bulletListList = [];  // help GC
+		bulletList = [];  // help GC
 
 		// second-pass: if there mutations relative to entering edit mode, add the reference path relative to the active block
 
@@ -293,13 +289,9 @@ function main (selector) {
 				continue;   
 			}
 
-			let bulletList = addReferencePath(m.addedNodes[0]);
-			bulletListList.push(bulletList);
+			bulletList = addReferencePath(m.addedNodes[0]);
+			break;
 		}
-
-		// in theory bulletListList should always have 0 or 1 array, but this must be investigated
-
-		if (bulletListList.length >= 2) { debugger; }
 	};
 
 	let observer = new MutationObserver(observerCallback);
@@ -318,8 +310,8 @@ function main (selector) {
 	let unloadHandler = () => { 
 
 		observer.disconnect();
-		removeReferencePath(bulletListList);
-		bulletListList = [];
+		removeReferencePath(bulletList);
+		bulletList = [];
 	};
 
 	internals.unloadHandlers.push(unloadHandler);
