@@ -167,7 +167,6 @@ function updateSettingsCached(optionsToMerge = {}) {
 
 function getColorHex(color, colorShade) {
 
-	console.log({ color, colorShade })
 	let settingsAreStrings = (typeof color === 'string' && typeof colorShade === 'string');
 
 	if (!settingsAreStrings) { return '' }
@@ -188,7 +187,7 @@ function getColorHex(color, colorShade) {
 
 function addReferencePath(el) {
 
-	console.log('addReferencePath @ ' + Date.now(), el)
+	// console.log('addReferencePath @ ' + Date.now(), el)
 	// console.log('  ', { 'internals.settingsCached': internals.settingsCached })
 	let bulletList = [];
 
@@ -238,7 +237,7 @@ function addReferencePath(el) {
 
 function removeReferencePath(bulletList) {
 
-	console.log('removeReferencePath @ ' + Date.now())
+	// console.log('removeReferencePath @ ' + Date.now())
 	// console.log('  ', { 'bulletsListList.length': bulletsListList.length })
 
 	// use plain for loops and inline code for maximum performance
@@ -271,12 +270,12 @@ function main (selector) {
 
 	let observerCallback = function observerCallback (mutationList, observer) {
 
-		console.log('--------')
-		console.log('observerCallback')
-		console.log('--------')
+		// console.log('--------')
+		// console.log('observerCallback')
+		// console.log('--------')
 
-		console.log({ 'mutationList.length': mutationList.length })
-		window.mutationList = mutationList;
+		// console.log({ 'mutationList.length': mutationList.length })
+		// window.mutationList = mutationList;
 
 
 		// return early for the common case of typing in the active block (edit mode)
@@ -308,10 +307,11 @@ function main (selector) {
 				bulletList = addReferencePath(m.addedNodes[0]);
 
 				textareaEl.addEventListener('focusout', ev => { 
-					console.log('focusout @ ' + Date.now())
+					// TODO: detect the case where we open the pallete, in which case the focus is lost and never recovered
+
+					// console.log('focusout @ ' + Date.now())
 					// removeReferencePath(bulletList) 
 					// bulletList = [];  // help GC
-					// TODO: detect the case where we open the pallete, in which case the focus is lost and never recovered
 				});
 
 				break;
