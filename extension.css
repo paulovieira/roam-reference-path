@@ -1,34 +1,29 @@
-/* TODO: rename class to roam-reference-path-highlighted */
-
 .reference-path .rm-bullet .rm-bullet__inner,
 .reference-path .rm-bullet .rm-bullet__inner--user-icon {
-    /*background-color: #667eea !important;  /*#ed8936*/
-    /*background-color: green;*/
-    background-color: var(--reference-path-color, red);
+    background-color: var(--reference-path-color, blue);
     transform: scale(var(--reference-path-scale-factor, 1));
 }
 
 .reference-path-important .rm-bullet .rm-bullet__inner,
 .reference-path-important .rm-bullet .rm-bullet__inner--user-icon {
-    /*background-color: #667eea !important;  /*#ed8936*/
-    /*background-color: green;*/
-    background-color: var(--reference-path-color, red) !important;
+    background-color: var(--reference-path-color, blue) !important;
     transform: scale(var(--reference-path-scale-factor, 1)) !important;
 }
 
 .reference-path .bp3-popover-target::before {
-    content: "";
+    content: '';
     position: absolute;
     top: 9px;   /* TODO:  ;scale: 1.5 => top: 9px; scale: 2 => top: 10px; */
     left: 6px;
     width: var(--reference-path-width); 
     height: var(--reference-path-height);
-    border-width: var(--reference-path-border-width);
-    border-style: solid;
-    border-color:  var(--reference-path-color, red);
+    border-width: var(--reference-path-border-width, 1px);
+    border-style: var(--reference-path-border-style, solid);
+    border-color:  var(--reference-path-color, blue);
     border-right: none;
     border-top: none;
     border-bottom-left-radius: 2px;
     pointer-events: none;
-    z-index: 11 !important;
+    z-index: 11;
+    /*z-index: 11 !important;*/
 }

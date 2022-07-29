@@ -11,6 +11,8 @@ internals.settingsCached = {
 	color: null,
 	colorShade: null,
 	scaleFactor: null,
+	lineWidth: null,
+	lineStyle: null,
 	important: null,
 
 	colorHex: null,  // computed option (from color and colorShade)
@@ -22,6 +24,8 @@ internals.settingsDefault = {
 	color: 'blue',
 	colorShade: '500',
 	scaleFactor: 1.5,
+	lineWidth: 1,
+	lineStyle: 'solid',
 	important: false
 };
 
@@ -54,24 +58,14 @@ function onunload() {
 function initializeSettings() {
 
 	let panelConfig = {
-		tabTitle: "Reference Path",
+		tabTitle: 'Reference Path',
 		settings: [
 			{
-				id: "scaleFactor",
-				name: "Scale factor for the bullets in the reference path",
-				description: "desc Scale factor for the bullets in the reference path",
+				id: 'color',
+				name: 'Color',
+				description: 'Color for the reference path (highlighted bullets and line)',
 				action: {
-					type: "input",
-					onChange: ev => { updateSettingsCached({ scaleFactor: ev.target.value }) },
-					placeholder: "1",
-				}
-			},
-			{
-				id: "color",
-				name: "Color for the reference path",
-				description: "desc Color for the reference path",
-				action: {
-					type: "select",
+					type: 'select',
 					onChange: value => { updateSettingsCached({ color: value }) },
 
 					// roam has tailwind out of the box, but the full color palette is not available; 
@@ -105,11 +99,12 @@ function initializeSettings() {
 				}
 			},
 			{
-				id: "colorShade",
-				name: "Color for the reference path",
-				description: "desc Color for the reference path",
+				id: 'colorShade',
+				name: 'Color shade',
+				description: '50 is light, 900 is dark. See the Tailwind color palette.',
+
 				action: {
-					type: "select",
+					type: 'select',
 					onChange: value => { updateSettingsCached({ colorShade: value }) },
 					items: [
 						'50',
@@ -126,11 +121,58 @@ function initializeSettings() {
 				}
 			},
 			{
-				id: "important",
-				name: "Use the important css keyword",
-				description: "If the css used in this extension has some conflict with css from some other loaded extension or theme, this setting might have to be activated",
+				id: 'scaleFactor',
+				name: 'Bullet scale factor',
+				description: 'Scale factor for the highlighted bullets in the reference path (1 is the original size).',
 				action: {
-					type: "switch",
+					type: 'select',
+					onChange: value => { updateSettingsCached({ scaleFactor: value }) },
+					items: [
+						'1',
+						'1.25',
+						'1.5',
+						'1.75',
+						'2',
+						'2.5',
+						'3',
+					],
+				},
+			},
+			{
+				id: 'lineWidth',
+				name: 'Line width',
+				description: 'Width for the highlighted line in the reference path (in pixels).',
+				action: {
+					type: 'select',
+					onChange: value => { updateSettingsCached({ lineWidth: value }) },
+					// TODO: consider subpixel values? does any browser actually implements them for border-width?
+					items: [
+						'1',
+						'2',
+						'3',
+					],
+				},
+			},
+			{
+				id: 'lineStyle',
+				name: 'Line style',
+				description: 'Style for the highlighted line in the reference path',
+				action: {
+					type: 'select',
+					onChange: value => { updateSettingsCached({ lineStyle: value }) },
+					items: [
+						'solid',
+						'dotted',
+						'dashed',
+					],
+				},
+			},
+			{
+				id: 'important',
+				name: 'Use the important css keyword',
+				description: 'If the css used in this extension has some conflict with css from some other loaded extension or theme, this setting might have to be activated.',
+				action: {
+					type: 'switch',
 					onChange: ev => { updateSettingsCached({ important: ev.target.checked }) }
 				}
 			},
@@ -231,7 +273,8 @@ function addReferencePath(el) {
 				// note that --reference-path-border-width must be set to 0 when 
 				// the reference path is removed, so we must set again here
 
-				bullet.style.setProperty('--reference-path-border-width', '1px');
+				bullet.style.setProperty('--reference-path-border-width', `${internals.settingsCached.lineWidth}px`);
+				bullet.style.setProperty('--reference-path-border-style', internals.settingsCached.lineStyle);
 
 				let bbox = bullet.getBoundingClientRect()
 
