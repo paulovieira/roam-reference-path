@@ -32,7 +32,7 @@ internals.selectorForTextarea = 'textarea.rm-block-input';
 function onload({ extensionAPI }) {
 
 	internals.extensionAPI = extensionAPI;
-	createSettingsPanel();
+	initializeSettings();
 
 	main('div.roam-main');
 	main('div#right-sidebar');
@@ -47,9 +47,7 @@ function onunload() {
 	log('onunload');
 }
 
-function createSettingsPanel() {
-
-	let { panel, get, set } = internals.extensionAPI.settings;
+function initializeSettings() {
 
 	let panelConfig = {
 		tabTitle: "Reference Path",
@@ -120,7 +118,7 @@ function createSettingsPanel() {
 			},
 			{
 				id: "important",
-				name: "Use the important css keyword",
+				name: "xUse the important css keyword",
 				description: "If the css used in this extension has some conflict with css from some other loaded extension or theme, this setting might have to be activated",
 				action: {
 					type: "switch",
@@ -130,7 +128,9 @@ function createSettingsPanel() {
 		]
 	};
 
-	panel.create(panelConfig);
+	let { extensionAPI } = internals;
+
+	extensionAPI.settings.panel.create(panelConfig);
 
 	let keys = panelConfig.settings.map(o => o.id);
 
@@ -138,15 +138,14 @@ function createSettingsPanel() {
 
 	keys.forEach(key => {
 
-		let value = get(key);
+		let value = extensionAPI.settings.get(key);
 
 		// if necessary use the values from the default settings to initialize the panel
 
 		if (value == null) {
 			value = internals.settingsDefault[key];
-			set(key, value);
+			extensionAPI.settings.set(key, value);
 		}
-
 		
 		updateSettingsCached({ [key]: value });
 	});
@@ -311,6 +310,8 @@ function main (selector) {
 
 		for (let idx = 0; idx < mutationList.length; idx++) {
 			let m = mutationList[idx];
+
+			// the target element of the mutations we are looking is always a div.rm-block-main
 
 			let isCandidate = (m.removedNodes.length > 0 && m.target.className.includes('rm-block-main'));
 
