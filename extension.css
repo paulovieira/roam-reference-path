@@ -4,12 +4,6 @@
     transform: scale(var(--reference-path-scale-factor, 1));
 }
 
-.reference-path-important .rm-bullet .rm-bullet__inner,
-.reference-path-important .rm-bullet .rm-bullet__inner--user-icon {
-    background-color: var(--reference-path-color, blue) !important;
-    transform: scale(var(--reference-path-scale-factor, 1)) !important;
-}
-
 .reference-path .bp3-popover-target::before {
     content: '';
     position: absolute;
@@ -25,5 +19,29 @@
     border-bottom-left-radius: 2px;
     pointer-events: none;
     z-index: 11;
-    /*z-index: 11 !important;*/
+}
+
+/* important variant */
+
+.reference-path-important .rm-bullet .rm-bullet__inner,
+.reference-path-important .rm-bullet .rm-bullet__inner--user-icon {
+    background-color: var(--reference-path-color, blue) !important;
+    transform: scale(var(--reference-path-scale-factor, 1)) !important;
+}
+
+.reference-path-important .bp3-popover-target::before {
+    content: '';
+    position: absolute !important;
+    top: 9px !important;   /* TODO:  ;scale: 1.5 => top: 9px; scale: 2 => top: 10px; */
+    left: 6px !important;
+    width: var(--reference-path-width) !important; 
+    height: var(--reference-path-height) !important;
+    border-width: var(--reference-path-border-width, 1px) !important;
+    border-style: var(--reference-path-border-style, solid) !important;
+    border-color:  var(--reference-path-color, blue) !important;
+    border-right: none !important;
+    border-top: none !important;
+    border-bottom-left-radius: 2px !important;
+    pointer-events: none !important;
+    z-index: 11 !important;
 }
