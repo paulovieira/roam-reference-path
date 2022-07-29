@@ -307,13 +307,16 @@ function main (selector) {
 
 		log('observerCallback', { mutationList })
 
-		// first-pass: if there mutations relative to leaving edit mode, remove any eventual existing 
-		// reference path (added in some previous mutation)
+		// first-pass: if there mutations relative to leaving edit mode, remove any existing reference path
 
 		for (let idx = 0; idx < mutationList.length; idx++) {
 			let m = mutationList[idx];
 
-			if (m.removedNodes.length > 0 && m.removedNodes[0].querySelector(internals.selectorForTextarea) != null) {
+			let isCandidate = (m.removedNodes.length > 0 && m.target.className.includes('rm-block-main'));
+
+			if (!isCandidate) { continue }
+
+			if (m.removedNodes[0].querySelector(internals.selectorForTextarea) != null) {
 				removeReferencePath(bulletList);
 				bulletList = [];  // help GC
 				break;
@@ -326,7 +329,11 @@ function main (selector) {
 		for (let idx = 0; idx < mutationList.length; idx++) {
 			let m = mutationList[idx];
 
-			if (m.addedNodes.length > 0 && (textareaEl = m.addedNodes[0].querySelector(internals.selectorForTextarea)) != null) {
+			let isCandidate = (m.addedNodes.length > 0 && m.target.className.includes('rm-block-main'));
+
+			if (!isCandidate) { continue }
+
+			if ((textareaEl = m.addedNodes[0].querySelector(internals.selectorForTextarea)) != null) {
 				bulletList = addReferencePath(m.addedNodes[0]);
 
 				/*
