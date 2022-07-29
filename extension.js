@@ -34,17 +34,21 @@ function onload({ extensionAPI }) {
 	internals.extensionAPI = extensionAPI;
 	initializeSettings();
 
+	log('onload started');
+
 	main('div.roam-main');
 	main('div#right-sidebar');
 
-	log('onload');
+	log('onload finished');
 }
 
 function onunload() {
 
+	log('onunload started');
+
 	internals.unloadHandlers.forEach(unloadHandler => { unloadHandler() })
 
-	log('onunload');
+	log('onunload finished');
 }
 
 function initializeSettings() {
@@ -69,29 +73,34 @@ function initializeSettings() {
 				action: {
 					type: "select",
 					onChange: value => { updateSettingsCached({ color: value }) },
+
+					// roam has tailwind out of the box, but the full color palette is not available; 
+					// we can find the available colors (for text) by manually executing the findAvailableTailwindColors
+					// function below, in the console
+
 					items: [
 						'gray', 
-						'slate (gray variant)', 
-						'zinc (gray variant)', 
-						'neutral (gray variant)', 
-						'stone (gray variant)', 
+						// 'slate (gray variant)', 
+						// 'zinc (gray variant)', 
+						// 'neutral (gray variant)', 
+						// 'stone (gray variant)', 
 						'red', 
-						'orange', 
-						'amber', 
+						// 'orange', 
+						// 'amber', 
 						'yellow', 
-						'lime', 
+						// 'lime', 
 						'green', 
-						'emerald', 
-						'teal', 
-						'cyan', 
-						'sky', 
+						// 'emerald', 
+						// 'teal', 
+						// 'cyan', 
+						// 'sky', 
 						'blue', 
 						'indigo', 
-						'violet', 
+						// 'violet', 
 						'purple', 
-						'fuchsia', 
+						// 'fuchsia', 
 						'pink', 
-						'rose', 
+						// 'rose', 
 					],
 				}
 			},
@@ -118,7 +127,7 @@ function initializeSettings() {
 			},
 			{
 				id: "important",
-				name: "xUse the important css keyword",
+				name: "Use the important css keyword",
 				description: "If the css used in this extension has some conflict with css from some other loaded extension or theme, this setting might have to be activated",
 				action: {
 					type: "switch",
@@ -277,6 +286,23 @@ function isMutationForTyping(mutation) {
 //
 // 	return new Promise(resolve => { setTimeout(resolve, ms) })
 // }
+
+function findAvailableTailwindColors() {
+
+	let colorClasses = [];
+
+	for(let styleSheet of document.styleSheets) {
+		for (let rule of styleSheet.cssRules) {
+			if(rule.selectorText == null) { continue }
+
+			if(rule.selectorText.startsWith('.text-') && (rule.selectorText.endsWith('00') || rule.selectorText.endsWith('-50'))) {
+				colorClasses.push(rule)
+			}
+		}
+	}
+
+	console.log(colorClasses.map(o => o.selectorText))
+}
 
 function log() {
 
