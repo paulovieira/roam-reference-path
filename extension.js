@@ -13,8 +13,9 @@ internals.settingsCached = {
 	scaleFactor: null,
 	important: null,
 
-	colorHex: null,  // computed from color and colorShade
-	cssClass: null  // computed from important
+	colorHex: null,  // computed option (from color and colorShade)
+	cssClass: null,  // computed option (from important)
+	debug: null  // activated by query string
 };
 
 internals.settingsDefault = {
@@ -30,20 +31,20 @@ internals.selectorForTextarea = 'textarea.rm-block-input';
 
 function onload({ extensionAPI }) {
 
-	console.log('onload - roam-reference-path')
-
 	internals.extensionAPI = extensionAPI;
 	createSettingsPanel();
 
 	main('div.roam-main');
 	main('div#right-sidebar');
+
+	log('onload');
 }
 
 function onunload() {
 
-	console.log('onunload - roam-reference-path')
-
 	internals.unloadHandlers.forEach(unloadHandler => { unloadHandler() })
+
+	log('onunload');
 }
 
 function createSettingsPanel() {
@@ -131,8 +132,6 @@ function createSettingsPanel() {
 
 	panel.create(panelConfig);
 
-	
-
 	let keys = panelConfig.settings.map(o => o.id);
 
 	// compute the cached settings
@@ -152,17 +151,25 @@ function createSettingsPanel() {
 		updateSettingsCached({ [key]: value });
 	});
 
+	// debug mode can activated by using a query string when loading roam; 
+	// example: https://roamresearch.com/?debug=true/#/app/graph_name
+
+	let urlSearchParams = new URLSearchParams(window.location.search);
+	let params = Object.fromEntries(urlSearchParams.entries());
+
+	internals.settingsCached.debug = (typeof params.debug === 'string' && params.debug.includes('true'));
 }
 
 function updateSettingsCached(optionsToMerge = {}) {
 
-	// console.log('updateSettingsCached')
-
 	Object.assign(internals.settingsCached, optionsToMerge);
+
+	// computed options 
+
 	internals.settingsCached.colorHex = getColorHex(internals.settingsCached.color, internals.settingsCached.colorShade);
 	internals.settingsCached.cssClass = internals.settingsCached.important ? 'reference-path-important' : 'reference-path';
 
-	// console.log('internals.settingsCached', internals.settingsCached)
+	log('updateSettingsCached', { 'internals.settingsCached': internals.settingsCached })
 }
 
 function getColorHex(color, colorShade) {
@@ -181,14 +188,15 @@ function getColorHex(color, colorShade) {
 	let colorHex = window.getComputedStyle(dummySpan).color;
 	dummySpan.remove();
 
-	console.log({ colorHex })
+	log('getColorHex', { colorHex })
+
 	return colorHex;
 }
 
 function addReferencePath(el) {
 
-	// console.log('addReferencePath @ ' + Date.now(), el)
-	// console.log('  ', { 'internals.settingsCached': internals.settingsCached })
+	log('addReferencePath', el);
+
 	let bulletList = [];
 
 	for(;;) {
@@ -224,7 +232,7 @@ function addReferencePath(el) {
 
 				// we have bboxPrevious.x > bbox.x because bulletPrevious is 
 				// to the right of bullet (it has "higher" indentation)
-				
+
 				let width = bboxPrevious.x - bbox.x;
 				bullet.style.setProperty('--reference-path-width', `${width}px`);
 
@@ -247,8 +255,7 @@ function addReferencePath(el) {
 
 function removeReferencePath(bulletList) {
 
-	// console.log('removeReferencePath @ ' + Date.now())
-	// console.log('  ', { 'bulletsListList.length': bulletsListList.length })
+	log('removeReferencePath')
 
 	// use plain for loops and inline code for maximum performance
 
@@ -257,7 +264,6 @@ function removeReferencePath(bulletList) {
 		bullet.style.setProperty('--reference-path-border-width', '0');
 		bullet.classList.remove(internals.settingsCached.cssClass)
 	}
-
 }
 
 function isMutationForTyping(mutation) {
@@ -267,6 +273,19 @@ function isMutationForTyping(mutation) {
 		&& mutation.addedNodes.length === 1
 		&& mutation.addedNodes[0].nodeName === '#text';
 }
+
+// async function delay(ms) {
+//
+// 	return new Promise(resolve => { setTimeout(resolve, ms) })
+// }
+
+function log() {
+
+	if (internals.settingsCached.debug) {
+		console.log(`[roam-reference-path ${Date.now()}]`, ...arguments);	
+	}
+}
+
 
 function main (selector) {
 
@@ -280,19 +299,13 @@ function main (selector) {
 
 	let observerCallback = function observerCallback (mutationList, observer) {
 
-		// console.log('--------')
-		// console.log('observerCallback')
-		// console.log('--------')
-
-		// console.log({ 'mutationList.length': mutationList.length })
-		// window.mutationList = mutationList;
-
-
 		// return early for the common case of typing in the active block (edit mode)
 
 		let isProbablyTyping = (mutationList.length === 1);
 
 		if (isProbablyTyping && isMutationForTyping(mutationList[0])) { return }
+
+		log('observerCallback', { mutationList })
 
 		// first-pass: if there mutations relative to leaving edit mode, remove any eventual existing 
 		// reference path (added in some previous mutation)
@@ -316,13 +329,21 @@ function main (selector) {
 			if (m.addedNodes.length > 0 && (textareaEl = m.addedNodes[0].querySelector(internals.selectorForTextarea)) != null) {
 				bulletList = addReferencePath(m.addedNodes[0]);
 
-				textareaEl.addEventListener('focusout', ev => { 
-					// TODO: detect the case where we open the pallete, in which case the focus is lost and never recovered
+				/*
+				textareaEl.addEventListener('focusout', async () => { 
 
-					// console.log('focusout @ ' + Date.now())
-					// removeReferencePath(bulletList) 
-					// bulletList = [];  // help GC
+					// edge-case: when the command pallete is opened and immediately closed, the textarea element is not 
+					// removed; however the focus is moved from the textarea to the command pallete; technically we are 
+					// still in edit mode, but in  practice we can't write anything; this is a bug in roam that should be solved upstream;
+					
+					await delay(0);
+
+					if (document.body.className.includes('bp3-overlay-open')) {
+						removeReferencePath(bulletList) 
+						bulletList = [];  // help GC
+					}
 				});
+				*/
 
 				break;
 			}
