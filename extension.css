@@ -1,10 +1,10 @@
-.reference-path .rm-bullet .rm-bullet__inner,
-.reference-path .rm-bullet .rm-bullet__inner--user-icon {
-    background-color: var(--reference-path-color, blue);
+div.reference-path span.rm-bullet span.rm-bullet__inner,
+div.reference-path span.rm-bullet span.rm-bullet__inner--user-icon {
+    background-color: var(--reference-path-border-color, orange);
     transform: scale(var(--reference-path-scale-factor, 1));
 }
 
-.reference-path .bp3-popover-target::before {
+div.reference-path span.bp3-popover-target::before {
     content: '';
     position: absolute;
     top: 9px;   /* TODO:  ;scale: 1.5 => top: 9px; scale: 2 => top: 10px; */
@@ -13,7 +13,7 @@
     height: var(--reference-path-height);
     border-width: var(--reference-path-border-width, 1px);
     border-style: var(--reference-path-border-style, solid);
-    border-color:  var(--reference-path-color, blue);
+    border-color:  var(--reference-path-border-color, orange);
     border-right: none;
     border-top: none;
     border-bottom-left-radius: 2px;
@@ -21,15 +21,31 @@
     z-index: 11;
 }
 
-/* important variant */
+div.reference-path + div.roam-block span.rm-page-ref__brackets {
+    color:  var(--reference-path-brackets-color, orange);
+    font-weight:  var(--reference-path-brackets-weight);
+}
 
-.reference-path-important .rm-bullet .rm-bullet__inner,
-.reference-path-important .rm-bullet .rm-bullet__inner--user-icon {
-    background-color: var(--reference-path-color, blue) !important;
+div.reference-path + div.roam-block span.rm-page-ref--link {
+    color:  var(--reference-path-link-color, orange);
+    font-weight:  var(--reference-path-link-weight);
+}
+
+div.reference-path + div.roam-block span.rm-page-ref--tag {
+    color:  var(--reference-path-link-color, orange);
+    font-weight:  var(--reference-path-link-weight);
+}
+
+
+/* important variant (copy-paste of the css above) */
+
+div.reference-path-important span.rm-bullet span.rm-bullet__inner,
+div.reference-path-important span.rm-bullet span.rm-bullet__inner--user-icon {
+    background-color: var(--reference-path-border-color, orange) !important;
     transform: scale(var(--reference-path-scale-factor, 1)) !important;
 }
 
-.reference-path-important .bp3-popover-target::before {
+div.reference-path-important span.bp3-popover-target::before {
     content: '';
     position: absolute !important;
     top: 9px !important;   /* TODO:  ;scale: 1.5 => top: 9px; scale: 2 => top: 10px; */
@@ -38,10 +54,25 @@
     height: var(--reference-path-height) !important;
     border-width: var(--reference-path-border-width, 1px) !important;
     border-style: var(--reference-path-border-style, solid) !important;
-    border-color:  var(--reference-path-color, blue) !important;
+    border-color:  var(--reference-path-border-color, orange) !important;
     border-right: none !important;
     border-top: none !important;
     border-bottom-left-radius: 2px !important;
     pointer-events: none !important;
     z-index: 11 !important;
+}
+
+div.reference-path-important + div.roam-block span.rm-page-ref__brackets {
+    color:  var(--reference-path-brackets-color, orange) !important;
+    font-weight:  var(--reference-path-brackets-weight) !important;
+}
+
+div.reference-path-important + div.roam-block span.rm-page-ref--link {
+    color:  var(--reference-path-link-color, orange) !important;
+    font-weight:  var(--reference-path-link-weight) !important;
+}
+
+div.reference-path-important + div.roam-block span.rm-page-ref--tag {
+    color:  var(--reference-path-link-color, orange) !important;
+    font-weight:  var(--reference-path-link-weight) !important;
 }

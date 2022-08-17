@@ -16,6 +16,8 @@ Demo:
 ## Future improvements
 
 - [DONE] show the line in the reference path
+- add as inline array of hex strings (instead of relying on roam to have the tailwind css)
+- highlight references/tags in the reference path
 - adjust the top/left according to the scale
 - improve the reference path for embeded blocks
 - test with different themes available in roam depot to check if there are conflicts in the css
