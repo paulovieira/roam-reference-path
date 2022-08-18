@@ -1,7 +1,7 @@
 div.reference-path span.rm-bullet span.rm-bullet__inner,
 div.reference-path span.rm-bullet span.rm-bullet__inner--user-icon {
-    background-color: var(--reference-path-border-color, orange);
-    transform: scale(var(--reference-path-scale-factor, 1));
+    /*background-color: var(--reference-path-bullet-color);*/
+    transform: scale(var(--reference-path-bullet-scale-factor));
 }
 
 div.reference-path span.bp3-popover-target::before {
@@ -13,10 +13,11 @@ div.reference-path span.bp3-popover-target::before {
     height: var(--reference-path-height);
     border-width: var(--reference-path-border-width, 1px);
     border-style: var(--reference-path-border-style, solid);
-    border-color:  var(--reference-path-border-color, orange);
+    border-color: var(--reference-path-line-color, orange);
     border-right: none;
     border-top: none;
-    border-bottom-left-radius: 2px;
+    /*border-bottom-left-radius: 2px;*/
+    border-bottom-left-radius: var(--reference-path-line-roundness);
     pointer-events: none;
     z-index: 11;
 }
@@ -37,12 +38,12 @@ div.reference-path + div.roam-block span.rm-page-ref--tag {
 }
 
 
-/* important variant (copy-paste of the css above) */
+/* important variant (copy-paste of the css above; disabled until it is actually needed) */
 
 div.reference-path-important span.rm-bullet span.rm-bullet__inner,
 div.reference-path-important span.rm-bullet span.rm-bullet__inner--user-icon {
-    background-color: var(--reference-path-border-color, orange) !important;
-    transform: scale(var(--reference-path-scale-factor, 1)) !important;
+    background-color: var(--reference-path-bullet-color) !important;
+    transform: scale(var(--reference-path-bullet-scale-factor)) !important;
 }
 
 div.reference-path-important span.bp3-popover-target::before {
@@ -54,10 +55,11 @@ div.reference-path-important span.bp3-popover-target::before {
     height: var(--reference-path-height) !important;
     border-width: var(--reference-path-border-width, 1px) !important;
     border-style: var(--reference-path-border-style, solid) !important;
-    border-color:  var(--reference-path-border-color, orange) !important;
+    border-color:  var(--reference-path-line-color, orange) !important;
     border-right: none !important;
     border-top: none !important;
-    border-bottom-left-radius: 2px !important;
+    /*border-bottom-left-radius: 2px !important;*/
+    border-bottom-left-radius: var(--reference-path-line-roundness) !important;
     pointer-events: none !important;
     z-index: 11 !important;
 }

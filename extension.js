@@ -1,4 +1,4 @@
-// based on previous work done by:
+3// based on previous work done by:
 // - Dhrumil Shah (@wandcrafting) and Robert Haisfield (@RobertHaisfield): https://www.figma.com/file/5shwLdUCHxSaPNEO7pazbe/
 // - Azlen Elza (@azlenelza): https://gist.github.com/azlen/cc8d543f0e46e17d978e705650df0e9e
 
@@ -9,25 +9,36 @@ internals.extensionAPI = null;
 
 internals.settingsCached = {
 	color: null,
-	colorShade: null,
-	scaleFactor: null,
+	bulletScaleFactor: null,
+	bulletColorShade: null,
+	lineColorShade: null,
+	// colorOpacity: null,
 	lineWidth: null,
 	lineStyle: null,
+	lineRoundness: null,
+	fontWeightName: null,
 	important: null,
 	showOnHover: null,
 
-	colorHex: null,  // computed option (from color and colorShade)
-	cssClass: null,  // computed option (from important)
+	bulletColorHex: null,  // computed setting (from color and bulletColorShade)
+	lineColorHex: null,  // computed setting (from color and lineColorShade)
+	// colorRGBA: null,  // computed setting (from color and colorShade)
+	fontWeightValue: null,  // computed setting (from fontWeightName)
+	cssClass: null,  // computed setting (from important)
+
 	debug: null,  // activated by query string
-	colorShadeIdx: null
 };
 
 internals.settingsDefault = {
 	color: 'orange',
-	colorShade: '500',
-	scaleFactor: 1.5,
+	bulletScaleFactor: 1.5,
+	bulletColorShade: '500',
+	lineColorShade: '500',
+	// colorOpacity: 1,
 	lineWidth: 1,
 	lineStyle: 'solid',
+	lineRoundness: 2,
+	fontWeightName: 'normal',
 	important: false,
 	showOnHover: false
 };
@@ -65,125 +76,141 @@ function initializeSettings() {
 
 	let panelConfig = {
 		tabTitle: 'Reference Path',
-		settings: [
-			{
-				id: 'color',
-				name: 'Color',
-				description: 'Color for the reference path (highlighted bullets and line)',
-				action: {
-					type: 'select',
-					onChange: value => { updateSettingsCached({ color: value }) },
-
-					// roam has tailwind out of the box, but the full color palette is not available; 
-					// we can find the available colors (for text) by manually executing the findAvailableTailwindColors
-					// function below, in the console
-
-					items: [
-						'gray', 
-						'slate (gray variant)', 
-						'zinc (gray variant)', 
-						'neutral (gray variant)', 
-						'stone (gray variant)', 
-						'red', 
-						'orange', 
-						'amber', 
-						'yellow', 
-						'lime', 
-						'green', 
-						'emerald', 
-						'teal', 
-						'cyan', 
-						'sky', 
-						'blue', 
-						'indigo', 
-						'violet', 
-						'purple', 
-						'fuchsia', 
-						'pink', 
-						'rose', 
-					],
-				}
-			},
-			{
-				id: 'colorShade',
-				name: 'Color shade',
-				description: '50 is light, 900 is dark. See the Tailwind color palette.',
-
-				action: {
-					type: 'select',
-					onChange: value => { updateSettingsCached({ colorShade: value }) },
-					items: [
-						'50',
-						'100',
-						'200',
-						'300',
-						'400',
-						'500',
-						'600',
-						'700',
-						'800',
-						'900',
-					],
-				}
-			},
-			{
-				id: 'scaleFactor',
-				name: 'Bullet scale factor',
-				description: 'Scale factor for the highlighted bullets in the reference path (1 is the original size).',
-				action: {
-					type: 'select',
-					onChange: value => { updateSettingsCached({ scaleFactor: value }) },
-					items: [
-						'1',
-						'1.25',
-						'1.5',
-						'1.75',
-						'2',
-						'2.5',
-						'3',
-					],
-				},
-			},
-			{
-				id: 'lineWidth',
-				name: 'Line width',
-				description: 'Width for the highlighted line in the reference path (in pixels).',
-				action: {
-					type: 'select',
-					onChange: value => { updateSettingsCached({ lineWidth: value }) },
-					// TODO: consider subpixel values? does any browser actually implements them for border-width?
-					items: [
-						'1',
-						'2',
-						'3',
-					],
-				},
-			},
-			{
-				id: 'lineStyle',
-				name: 'Line style',
-				description: 'Style for the highlighted line in the reference path',
-				action: {
-					type: 'select',
-					onChange: value => { updateSettingsCached({ lineStyle: value }) },
-					items: [
-						'solid',
-						'dotted',
-						'dashed',
-					],
-				},
-			},
-			{
-				id: 'important',
-				name: 'Use the important css keyword',
-				description: 'If the css used in this extension has some conflict with css from some other loaded extension or theme, this setting might have to be activated.',
-				action: {
-					type: 'switch',
-					onChange: ev => { updateSettingsCached({ important: ev.target.checked }) }
-				}
-			},
-		]
+		settings: []
 	};
+
+	panelConfig.settings.push({
+		id: 'color',
+		name: 'Color',
+		description: 'Color for the reference path',
+		action: {
+			type: 'select',
+			onChange: value => { updateSettingsCached({ color: value }) },
+			items: ['gray', 'slate (gray variant)', 'zinc (gray variant)', 'neutral (gray variant)', 'stone (gray variant)', 'red', 'orange', 'amber', 'yellow', 'lime', 'green', 'emerald', 'teal', 'cyan', 'sky', 'blue', 'indigo', 'violet', 'purple', 'fuchsia', 'pink', 'rose'],
+
+			// roam uses tailwindcss, but the full color palette is not available in the loaded css; 
+			// so we load the full palette manually in internals.tailwindColors;
+		}		
+	});
+
+	panelConfig.settings.push({
+		id: 'bulletScaleFactor',
+		name: 'Bullet scale factor',
+		description: 'Scale factor for the bullets in the reference path (use 1 for no scale).',
+		action: {
+			type: 'select',
+			onChange: value => { updateSettingsCached({ bulletScaleFactor: value }) },
+			items: ['1', '1.25', '1.5', '1.75', '2', '2.25', '2.5'],
+		},
+	});
+
+	panelConfig.settings.push({
+		id: 'bulletColorShade',
+		name: 'Bullet color shade',
+		description: '50 is light; 900 is dark. See the Tailwind color palette: https://tailwindcss.com/docs/customizing-colors',
+		action: {
+			type: 'select',
+			onChange: value => { updateSettingsCached({ bulletColorShade: value }) },
+			items: ['none', '50', '100', '200', '300', '400', '500', '600', '700', '800', '900'],
+		}		
+	});
+
+	panelConfig.settings.push({
+		id: 'lineColorShade',
+		name: 'Line color shade',
+		description: '50 is light; 900 is dark. See the Tailwind color palette: https://tailwindcss.com/docs/customizing-colors',
+		action: {
+			type: 'select',
+			onChange: value => { updateSettingsCached({ lineColorShade: value }) },
+			items: ['none', '50', '100', '200', '300', '400', '500', '600', '700', '800', '900'],
+		}		
+	});
+
+	// panelConfig.settings.push({
+	// 	id: 'colorOpacity',
+	// 	name: 'Color opacity',
+	// 	description: '0 is full transparency; 1 is full opacity.',
+	// 	action: {
+	// 		type: 'select',
+	// 		onChange: value => { updateSettingsCached({ colorOpacity: value }) },
+	// 		items: ['0', '0.2', '0.4', '0.6', '0.8', '1'],
+	// 	}
+	// });
+
+	panelConfig.settings.push({
+		id: 'lineWidth',
+		name: 'Line width',
+		description: 'Width for the line (in pixels).',
+		action: {
+			type: 'select',
+			onChange: value => { updateSettingsCached({ lineWidth: value }) },
+			// TODO: consider subpixel values? does any browser actually implements them for border-width?
+			items: ['1', '2', '3'],
+		},
+	});
+
+	panelConfig.settings.push({
+		id: 'lineStyle',
+		name: 'Line style',
+		description: 'Style for the line (see https://developer.mozilla.org/en-US/docs/Web/CSS/border-style)',
+		action: {
+			type: 'select',
+			onChange: value => { updateSettingsCached({ lineStyle: value }) },
+			items: ['solid', 'dotted', 'dashed'],
+		},
+	});
+
+	panelConfig.settings.push({
+		id: 'lineRoundness',
+		name: 'Line corner roundness',
+		description: 'Amount of roundness for the corners (use 0 for no roundness, that is, right angle corners)',
+		action: {
+			type: 'select',
+			onChange: value => { updateSettingsCached({ lineRoundness: value }) },
+			items: ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'],
+		},
+	});
+
+	panelConfig.settings.push({
+		id: 'fontWeightName',
+		name: 'Font weight for links (references)',
+		description: 'Font weight for references (double brackets and tags) that belong to blocks in the path',
+		action: {
+			type: 'select',
+			onChange: value => { updateSettingsCached({ fontWeightName: value }) },
+			items: ['light', 'normal', 'medium', 'semibold', 'bold'],  // ['300', '400', '500', '600', '700']
+		},
+	});
+
+	// panelConfig.settings.push({
+	// 	id: 'important',
+	// 	name: 'Use the important css keyword',
+	// 	description: 'If the css used in this extension has some conflict with css from some other loaded extension or theme, this setting might have to be activated.',
+	// 	action: {
+	// 		type: 'switch',
+	// 		onChange: ev => { updateSettingsCached({ important: ev.target.checked }) }
+	// 	}
+	// });
+
+	// panelConfig.settings.push({
+
+	// });
+
+	// panelConfig.settings.push({
+
+	// });
+
+	// panelConfig.settings.push({
+
+	// });
+
+	// panelConfig.settings.push({
+
+	// });
+
+	// panelConfig.settings.push({
+
+	// });
 
 	let { extensionAPI } = internals;
 
@@ -220,38 +247,58 @@ function updateSettingsCached(optionsToMerge = {}) {
 
 	Object.assign(internals.settingsCached, optionsToMerge);
 
-	// computed options 
+	// computed settings 
 
-	internals.settingsCached.colorShadeIdx = Math.floor(Number(internals.settingsCached.colorShade) / 100);
-	internals.settingsCached.colorHex = getColorHex(internals.settingsCached.color, internals.settingsCached.colorShadeIdx);
-	internals.settingsCached.colorRGBA = hexToRGBA(internals.settingsCached.colorHex);
+	internals.settingsCached.bulletColorHex = getColorHex(internals.settingsCached.color, internals.settingsCached.bulletColorShade);
+	internals.settingsCached.lineColorHex = getColorHex(internals.settingsCached.color, internals.settingsCached.lineColorShade);
+	// internals.settingsCached.colorRGBA = hexToRGBA(colorHex, internals.settingsCached.colorOpacity);
 	internals.settingsCached.cssClass = internals.settingsCached.important ? 'reference-path-important' : 'reference-path';
+	internals.settingsCached.fontWeightValue = getFontWeightValue(internals.settingsCached.fontWeightName);
 
+	
 	log('updateSettingsCached', { 'internals.settingsCached': internals.settingsCached })
 }
 
-function getColorHex(color, colorShadeIdx) {
+function getColorHex(color, colorShade) {
 
-	// let settingsAreStrings = (typeof color === 'string' && typeof colorShadeIdx === 'string');
+	let settingsAreStrings = (typeof color === 'string' && typeof colorShade === 'string');
 
-	// if (!settingsAreStrings) { return '' }
+	if (!settingsAreStrings || colorShade === 'none') { return '#invalid_hex_color_on_purpose' } 
 
 	color = color.split('(')[0].trim();  // strip the '(' from the grays
-
-	let colorHex = internals.colors[color][colorShadeIdx];
-	//colorHex = hexToRGBA(colorHex);
-	// let tailwindColorClass = `text-${color}-${colorShade}`;
-	// let dummySpan = document.createElement('span');
-
-	// dummySpan.style.display = 'none';
-	// dummySpan.classList.add(tailwindColorClass);
-	// document.body.appendChild(dummySpan);
-	// let colorHex = window.getComputedStyle(dummySpan).color;
-	// dummySpan.remove();
+	let colorShadeIdx = Math.floor(Number(colorShade) / 100);
+	let colorHex = internals.tailwindColors[color][colorShadeIdx];
 
 	log('getColorHex', { colorHex })
 
 	return colorHex;
+}
+
+// https://stackoverflow.com/questions/5623838/rgb-to-hex-and-hex-to-rgb
+
+// function hexToRGBA(hex, alpha = 1) {
+//
+// 	let result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+// 	let r = parseInt(result[1], 16);
+// 	let g = parseInt(result[2], 16);
+// 	let b = parseInt(result[3], 16);
+//
+//   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+// }
+
+function getFontWeightValue(fontWeightName) {
+
+	// https://developer.mozilla.org/en-US/docs/Web/CSS/font-weight#common_weight_name_mapping
+
+	let nameToValueMapping = {
+		'light': '300',
+		'normal': '400',
+		'medium': '500',
+		'semibold': '600',
+		'bold': '700',
+	}
+
+	return nameToValueMapping[fontWeightName];
 }
 
 function addReferencePath(el, isHover = false) {
@@ -276,27 +323,25 @@ function addReferencePath(el, isHover = false) {
 		if (bullet == null) { continue }
 
 		bullet.classList.add(internals.settingsCached.cssClass);
-		bullet.style.setProperty('--reference-path-scale-factor', internals.settingsCached.scaleFactor);
 
-		let { colorRGBA } = internals.settingsCached;
-		bullet.style.setProperty('--reference-path-border-color', colorRGBA);
-		// bullet.style.setProperty('--reference-path-brackets-color', colorRGBA);
-		// bullet.style.setProperty('--reference-path-link-color', colorRGBA);
+		let { lineColorHex, bulletColorHex } = internals.settingsCached;
+
+		bullet.style.setProperty('--reference-path-bullet-scale-factor', internals.settingsCached.bulletScaleFactor);
+
+		bullet.style.setProperty('--reference-path-bullet-color', bulletColorHex);	
+		bullet.style.setProperty('--reference-path-line-color', lineColorHex);	
+		
+		bullet.style.setProperty('--reference-path-line-roundness', `${internals.settingsCached.lineRoundness}px`);
+		
+		// bullet.style.setProperty('--reference-path-brackets-color', lineColorHex);
+		// bullet.style.setProperty('--reference-path-link-color', lineColorHex);
 		
 		let blockEl = bullet.nextElementSibling;
-		blockEl.style.setProperty('--reference-path-brackets-color', colorRGBA);
+		blockEl.style.setProperty('--reference-path-brackets-color', lineColorHex);
 
-		// font should be one of these
-
-		// light: 300;
-		// normal: 400;
-		// medium: 500;
-		// semibold: 600;
-		// bold: 700;
-
-		blockEl.style.setProperty('--reference-path-brackets-weight', 400);
-		blockEl.style.setProperty('--reference-path-link-color', colorRGBA);
-		blockEl.style.setProperty('--reference-path-link-weight', 400);
+		blockEl.style.setProperty('--reference-path-brackets-weight', internals.settingsCached.fontWeightValue);
+		blockEl.style.setProperty('--reference-path-link-color', lineColorHex);
+		blockEl.style.setProperty('--reference-path-link-weight', internals.settingsCached.fontWeightValue);
 
 		bulletList.push(bullet);
 
@@ -369,22 +414,22 @@ function isMutationForTyping(mutation) {
 // 	return new Promise(resolve => { setTimeout(resolve, ms) })
 // }
 
-function findAvailableTailwindColors() {
-
-	let colorClasses = [];
-
-	for(let styleSheet of document.styleSheets) {
-		for (let rule of styleSheet.cssRules) {
-			if(rule.selectorText == null) { continue }
-
-			if(rule.selectorText.startsWith('.text-') && (rule.selectorText.endsWith('00') || rule.selectorText.endsWith('-50'))) {
-				colorClasses.push(rule)
-			}
-		}
-	}
-
-	console.log(colorClasses.map(o => o.selectorText))
-}
+// function findAvailableTailwindColors() {
+//
+// 	let colorClasses = [];
+//
+// 	for(let styleSheet of document.styleSheets) {
+// 		for (let rule of styleSheet.cssRules) {
+// 			if(rule.selectorText == null) { continue }
+//
+// 			if(rule.selectorText.startsWith('.text-') && (rule.selectorText.endsWith('00') || rule.selectorText.endsWith('-50'))) {
+// 				colorClasses.push(rule)
+// 			}
+// 		}
+// 	}
+//
+// 	console.log(colorClasses.map(o => o.selectorText))
+// }
 
 function log() {
 
@@ -492,7 +537,7 @@ function main (selector) {
 
 		// add mouse listeners
 
-		if (internals.settingsCached.showOnHover || true) {
+		if (internals.settingsCached.showOnHover) {
 
 			// we prefer to use div.roam-block instead of rm-block-main to make the hover effect a bit less
 			// intrusive; the logic for the reference path (when hovering) is not affected by this;
@@ -564,19 +609,11 @@ export default {
 	onunload
 };
 
-// https://stackoverflow.com/questions/5623838/rgb-to-hex-and-hex-to-rgb
 
-function hexToRGBA(hex, alpha = 1) {
+// https://tailwindcss.com/docs/customizing-colors
+// https://github.com/tailwindlabs/tailwindcss/blob/master/src/public/colors.js
 
-	let result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-	let r = parseInt(result[1], 16);
-	let g = parseInt(result[2], 16);
-	let b = parseInt(result[3], 16);
-
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-}
-
-internals.colors = {
+internals.tailwindColors = {
   slate:   ['#f8fafc','#f1f5f9','#e2e8f0','#cbd5e1','#94a3b8','#64748b','#475569','#334155','#1e293b','#0f172a'],
   gray:    ['#f9fafb','#f3f4f6','#e5e7eb','#d1d5db','#9ca3af','#6b7280','#4b5563','#374151','#1f2937','#111827'],
   zinc:    ['#fafafa','#f4f4f5','#e4e4e7','#d4d4d8','#a1a1aa','#71717a','#52525b','#3f3f46','#27272a','#18181b'],
