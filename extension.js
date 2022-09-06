@@ -4,15 +4,15 @@
 
 let internals = {};
 
-internals.extensionId = 'reference-path';
+internals.extensionId = 'roam-reference-path';
 
 // dev mode can activated by using the special key/value 'dev=true' in the query string;
 // example: https://roamresearch.com?dev=true/#/app/<GRAPH_NAME>
 
 internals.isDev = String(new URLSearchParams(window.location.search).get('dev')).includes('true');
-internals.isProd = !internals.isDev;
 internals.extensionAPI = null;
-internals.unloadHandlers = [];
+internals.cleaners = [];
+//internals.blockList = [];
 
 internals.settingsCached = {
 	color: null,
@@ -21,12 +21,14 @@ internals.settingsCached = {
 	bulletScaleFactor: null,
 
 	referenceColorShade: null,
-	referenceFontWeightName: null,
+	referenceFontWeightDescription: null,
 
 	lineColorShade: null,
 	lineWidth: null,
 	lineStyle: null,
 	lineRoundness: null,
+	lineTop: null,
+	lineLeft: null,
 	// showOnHover: null,  // to be added in the future
 
 	// derived settings
@@ -34,22 +36,24 @@ internals.settingsCached = {
 	bulletColorHex: null,  // derived from color + bulletColorShade
 	referenceColorHex: null,  // derived from color + referenceColorShade
 	lineColorHex: null,  // derived from color + lineColorShade
-	referenceFontWeightValue: null,  // derived from referenceFontWeightName
+	referenceFontWeightValue: null,  // derived from referenceFontWeightDescription
 };
 
 internals.settingsDefault = {
 	color: 'indigo',
 
 	bulletColorShade: '500',
-	bulletScaleFactor: 1.5,
+	bulletScaleFactor: '1.5',
 	
 	referenceColorShade: '500',
-	referenceFontWeightName: 'medium',
+	referenceFontWeightDescription: 'medium',
 
 	lineColorShade: '500',
-	lineWidth: 1,
+	lineWidth: '1px',
 	lineStyle: 'solid',
-	lineRoundness: 2,
+	lineRoundness: '2px',
+	lineTop: '9px',
+	lineLeft: '6px',
 	// showOnHover: false  // to be added in the future
 };
 
@@ -59,17 +63,13 @@ function onload({ extensionAPI }) {
 
 	internals.extensionAPI = extensionAPI;
 	initializeSettings();
-
-	// we have to resort to dynamic stylesheets (instead of using extension.css directly) to be able to support 
-	// the 'disabled' option in our settings (when 'disabled' is selected, we don't add any css at all relative 
-	// to that setting/feature); this is the simplest way to avoid having css rules that might conflict with 
-	// other extensions/themes; besides that, the fact that css cascade doesn't work as expected with css custom
-	// variables is another reason to use dynamic styles; more details here: https://adactio.com/journal/16993
-
 	resetStyle();
+	
+	startPermanentObserver({ target: 'div.roam-main', observerCallback: observerCallbackMainView });
+	startPermanentObserver({ target: 'div#right-sidebar', observerCallback: observerCallbackSidebar });
 
-	observeMain({ selector: 'div.roam-main' });
-	observeMain({ selector: 'div#right-sidebar' });
+	startTemporaryObserver({ target: 'div.rm-article-wrapper' });
+	startTemporaryObserver({ target: 'div#roam-right-sidebar-content' });
 
 	log('ONLOAD (end)');
 }
@@ -78,14 +78,17 @@ function onunload() {
 
 	log('ONUNLOAD (start)');
 
-	internals.unloadHandlers.forEach(unloadHandler => { unloadHandler() })
+	stopObserver({ observerId: 'all' });
+	removeStyle();
 
 	log('ONUNLOAD (end)');
 }
 
 function log() {
 	
-	if (internals.isProd) { return }
+	let isProd = !internals.isDev;
+
+	if (isProd) { return }
 
 	console.log(`${internals.extensionId} ${Date.now()}]`, ...arguments);
 }
@@ -95,7 +98,7 @@ function initializeSettings() {
 	log('initializeSettings');
 
 	let panelConfig = {
-		tabTitle: 'Reference Path',
+		tabTitle: `Reference Path${internals.isDev ? ' (dev)' : ''}`,
 		settings: []
 	};
 
@@ -146,21 +149,21 @@ function initializeSettings() {
 	});
 
 	panelConfig.settings.push({
-		id: 'referenceFontWeightName',
+		id: 'referenceFontWeightDescription',
 		name: 'References (double brackets and tags): font weight',
 		// description: 'Make the references that belong to blocks in the active path stand out.',
 		action: {
 			type: 'select',
 			// weight names corresponding to ['300', '400', '500', '600', '700']
 			items: ['disabled', 'light', 'normal', 'medium', 'semibold', 'bold'],
-			onChange: value => { updateSettingsCached({ key: 'referenceFontWeightName', value }); resetStyle(); },
+			onChange: value => { updateSettingsCached({ key: 'referenceFontWeightDescription', value }); resetStyle(); },
 		},
 	});
 
 	panelConfig.settings.push({
 		id: 'lineColorShade',
 		name: 'Lines: color shade',
-		description: 'See the description given for bullets. If this setting is disabled, the other 3 settings for lines will also be disabled (line width, style and roundness).',
+		description: 'See the description given for bullets. If this setting is disabled, the remaining settings for lines will also be disabled.',
 		action: {
 			type: 'select',
 			items: ['disabled', '100', '200', '300', '400', '500', '600', '700', '800', '900'],
@@ -175,7 +178,7 @@ function initializeSettings() {
 		action: {
 			type: 'select',
 			// TODO: consider subpixel values? does any browser actually implements them for border-width?
-			items: ['1', '2', '3'],
+			items: ['1px', '2px', '3px'],
 			onChange: value => { updateSettingsCached({ key: 'lineWidth', value }); resetStyle(); },
 		},
 	});
@@ -194,11 +197,33 @@ function initializeSettings() {
 	panelConfig.settings.push({
 		id: 'lineRoundness',
 		name: 'Lines: corner roundness',
-		description: 'Use 0 for no roundness, that is, to obtain right angle corners.',
+		description: 'Use 0px for no roundness, that is, to obtain right angle corners.',
 		action: {
 			type: 'select',
-			items: ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'],
+			items: ['0px', '1px', '2px', '3px', '4px', '5px', '6px', '7px', '8px', '9px'],
 			onChange: value => { updateSettingsCached({ key: 'lineRoundness', value }); resetStyle(); },
+		},
+	});
+
+	panelConfig.settings.push({
+		id: 'lineTop',
+		name: 'Lines: top offset (ADVANCED)',
+		description: 'Use only if the line seems out of place vertically. Recommended value: 9px.',
+		action: {
+			type: 'select',
+			items: ['7px', '7.25px', '7.5px', '7.75px', '8px', '8.25px', '8.5px', '8.75px', '9px', '9.25px', '9.5px', '9.75px', '10px', '10.25px', '10.5px', '10.75px', '11px'],
+			onChange: value => { updateSettingsCached({ key: 'lineTop', value }); resetStyle(); },
+		},
+	});
+
+	panelConfig.settings.push({
+		id: 'lineLeft',
+		name: 'Lines: left offset (ADVANCED)',
+		description: 'Use only if the line seems out of place horizontally. Recommended value: 6px.',
+		action: {
+			type: 'select',
+			items: ['4px', '4.25px', '4.5px', '4.75px', '5px', '5.25px', '5.5px', '5.75px', '6px', '6.25px', '6.5px', '6.75px', '7px', '7.25px', '7.5px', '7.75px', '8px'],
+			onChange: value => { updateSettingsCached({ key: 'lineLeft', value }); resetStyle(); },
 		},
 	});
 
@@ -230,12 +255,12 @@ function updateSettingsCached({ key, value }) {
 
 	// derived settings
 
-	let { bulletColorShade, referenceColorShade, lineColorShade, referenceFontWeightName } = internals.settingsCached;
+	let { bulletColorShade, referenceColorShade, lineColorShade, referenceFontWeightDescription } = internals.settingsCached;
 
 	internals.settingsCached.bulletColorHex = getColorHex({ shade: bulletColorShade });
 	internals.settingsCached.referenceColorHex = getColorHex({ shade: referenceColorShade });
 	internals.settingsCached.lineColorHex = getColorHex({ shade: lineColorShade });
-	internals.settingsCached.referenceFontWeightValue = getFontWeightValue({ fontWeightName: referenceFontWeightName });
+	internals.settingsCached.referenceFontWeightValue = getFontWeightValue({ fontWeightDescription: referenceFontWeightDescription });
 
 	log('updateSettingsCached', { key, value, 'internals.settingsCached': internals.settingsCached });
 }
@@ -253,7 +278,7 @@ function getColorHex({ color, shade }) {
 	return colorHex;
 }
 
-function getFontWeightValue({ fontWeightName }) {
+function getFontWeightValue({ fontWeightDescription }) {
 
 	// https://developer.mozilla.org/en-US/docs/Web/CSS/font-weight#common_weight_name_mapping
 
@@ -266,13 +291,24 @@ function getFontWeightValue({ fontWeightName }) {
 		'disabled': 'disabled'
 	}
 
-	return nameToValue[fontWeightName];
+	return nameToValue[fontWeightDescription];
 }
 
 function resetStyle() {
 
+	// we have to resort to dynamic stylesheets (instead of using extension.css directly) to be able
+	// to support the 'disabled' option in our settings (when 'disabled' is selected, we don't add  
+	// any css at all relative to that setting/feature); this is the simplest way to avoid having 
+	// css rules that might conflict with other extensions/themes;
+
+	// on top of that, the fact that css cascade doesn't work as expected with css custom variables is 
+	// another reason to use dynamic styles; more details here: https://adactio.com/journal/16993
+
 	removeStyle();
-	addStyle();
+
+	// use setTimeout to make sure our css styles are loaded after styles from other extensions
+
+	setTimeout(addStyle, internals.isDev ? 200 : 100);
 }
 
 function removeStyle() {
@@ -295,49 +331,49 @@ function addStyle() {
 
 	if (internals.settingsCached.bulletColorHex !== 'disabled') {
 		textContent += `
-			.${extensionId} span.rm-bullet__inner,
-			.${extensionId} span.rm-bullet__inner--user-icon {
-		    background-color: var(--${extensionId}-bullet-color);
+			.${extensionId} > div.controls span.rm-bullet__inner,
+			.${extensionId} > div.controls span.rm-bullet__inner--user-icon {
+				background-color: var(--${extensionId}-bullet-color);
 			}
 		`;
 	}
 
 	if (internals.settingsCached.bulletScaleFactor !== 'disabled') {
 		textContent += `
-			.${extensionId} span.rm-bullet__inner,
-			.${extensionId} span.rm-bullet__inner--user-icon {
-		    transform: scale(var(--${extensionId}-bullet-scale-factor));
+			.${extensionId} > div.controls span.rm-bullet__inner,
+			.${extensionId} > div.controls span.rm-bullet__inner--user-icon {
+				transform: scale(var(--${extensionId}-bullet-scale-factor));
 			}
 		`;
 	}
 
 	if (internals.settingsCached.referenceColorHex !== 'disabled') {
 		textContent += `
-			.${extensionId} + div.roam-block span.rm-page-ref__brackets {
+			.${extensionId} > div.rm-block-text span.rm-page-ref__brackets {
 				color: var(--${extensionId}-brackets-color);
 			}
 
-			.${extensionId} + div.roam-block span.rm-page-ref--link {
+			.${extensionId} > div.rm-block-text span.rm-page-ref--link {
 				color: var(--${extensionId}-link-color);
 			}
 
-			.${extensionId} + div.roam-block span.rm-page-ref--tag {
+			.${extensionId} > div.rm-block-text span.rm-page-ref--tag {
 				color: var(--${extensionId}-link-color);
 			}
 		`;
 	}
 
-	if (internals.settingsCached.referenceFontWeightName !== 'disabled') {
+	if (internals.settingsCached.referenceFontWeightValue !== 'disabled') {
 		textContent += `
-			.${extensionId} + div.roam-block span.rm-page-ref__brackets {
+			.${extensionId} > div.rm-block-text span.rm-page-ref__brackets {
 				font-weight:  var(--${extensionId}-brackets-weight);
 			}
 
-			.${extensionId} + div.roam-block span.rm-page-ref--link {
+			.${extensionId} > div.rm-block-text span.rm-page-ref--link {
 				font-weight:  var(--${extensionId}-link-weight);
 			}
 
-			.${extensionId} + div.roam-block span.rm-page-ref--tag {
+			.${extensionId} > div.rm-block-text span.rm-page-ref--tag {
 				font-weight:  var(--${extensionId}-link-weight);
 			}
 		`;
@@ -345,18 +381,17 @@ function addStyle() {
 
 	if (internals.settingsCached.lineColorHex !== 'disabled') {
 		textContent += `
-			.${extensionId} span.bp3-popover-target::before {
+			.${extensionId} > div.controls span.bp3-popover-target::before {
 				border-color: var(--${extensionId}-line-color);
 				border-width: var(--${extensionId}-line-width);
 				border-style: var(--${extensionId}-line-style);
 				border-bottom-left-radius: var(--${extensionId}-line-roundness);
-
-				content: '';
 				position: absolute;
-				top: 9px;   /* TODO: fine-tune using scale: 1.5 => top: 9px; scale: 2 => top: 10px; */
-				left: 6px;
+				top: var(--${extensionId}-line-top);
+				left: var(--${extensionId}-line-left);
 				width: var(--${extensionId}-box-width); 
 				height: var(--${extensionId}-box-height);
+				content: '';
 				border-right: none;
 				border-top: none;
 				pointer-events: none;
@@ -374,95 +409,109 @@ function addStyle() {
 	document.head.appendChild(extensionStyle);
 }
 
-function observeMain ({ selector }) {
+function startTemporaryObserver ({ target }) {
 
-	log('observeMain');
+	let targetEl = document.querySelector(target);
 
-	let rootEl = document.querySelector(selector);
+	if (targetEl == null || targetEl.dataset.observerId != null) { return }
 
-	if (rootEl == null) { return }
+	log('main');
 
-	let bulletList = [];  // array of nodes
+	let blockList = [];  // array of nodes
 	
 	// optional feature to be added in the future: show reference on hover
 
 	// let isEditMode = false;
 
 	// let onMouseEnter = function onMouseEnter (ev) {
-	// 	console.log('onMouseEnter @ ' + Date.now(), ev.type, ev, selector)
+	// 	console.log('onMouseEnter @ ' + Date.now(), ev.type, ev, target)
 	//
 	// 	if(isEditMode) {
 	// 		console.log('  skipping', { isEditMode })
 	// 		return;
 	// 	}
 	//
-	// 	bulletList = addReferencePath(ev.target, true);
+	// 	blockList = addReferencePath(ev.target);
 	// }
 
 	// let onMouseLeave = function onMouseLeave (ev) {
-	// 	console.log('onMouseLeave @ ' + Date.now(), ev.type, ev, selector);
+	// 	console.log('onMouseLeave @ ' + Date.now(), ev.type, ev, target);
 	//
 	// 	if(isEditMode) {
 	// 		console.log('  skipping', { isEditMode })
 	// 		return;
 	// 	}
 	//
-	// 	removeReferencePath(bulletList);
-	// 	bulletList = [];
+	// 	removeReferencePath(blockList);
+	// 	blockList = [];
 	// }
 
+
+	// there is some evidence that getElementsByTagName is faster than querySelector
+	// https://humanwhocodes.com/blog/2010/09/28/why-is-getelementsbytagname-faster-that-queryselectorall/
+	// https://gomakethings.com/javascript-selector-performance/
+
+	// this assumes that the only textarea element inside targetEl is the one that exists
+	// when a block is being edited
+
+	let textareaLiveList = targetEl.getElementsByTagName('textarea');
 
 	// reference: https://developer.mozilla.org/en-US/docs/Web/API/MutationObserver/MutationObserver
 
 	let observerCallback = function observerCallback (mutationList) {
 
-		// return early for the common case of typing in the active block (in edit mode)
+		// return early 1: typing in the active block (in edit mode)
 
 		let mutationCount = mutationList.length;
 		let isProbablyTyping = (mutationCount === 1);
+		
+		// if (isProbablyTyping && isMutationForTyping(mutationList[0])) { return }
+		if (isProbablyTyping) {
 
-		if (isProbablyTyping && isMutationForTyping(mutationList[0])) { return }
+			let mutation0 = mutationList[0];
 
-		log('observerCallback', { mutationList });
+			// 2 cases to consider
+			// 1) the textarea/block does not become empty (common case)
+			// 2) the textarea/block becomes empty (example: using the backspace on the last character)
 
-		// first-pass: find a mutation relative to leaving edit mode (removal of the textarea element);
-		// we should then remove any existing reference path;
-		//debugger;
+			let isMutationForTyping = true
+				&& mutation0.target.tagName === 'TEXTAREA'
+				&& (false
+					|| (mutation0.addedNodes.length === 1 && mutation0.addedNodes[0].nodeType === 3)  
+					|| (mutation0.removedNodes.length === 1 && mutation0.removedNodes[0].nodeType === 3)
+				);
 
-		for (let idx = 0; idx < mutationCount; idx++) {
-			let m = mutationList[idx];
-
-			if (!isCandidateMutationForRemove(m, mutationCount)) { continue; }
-
-			let textareaEl = queryTextarea(m.target, m.removedNodes[0]);
-
-			if (textareaEl != null) {
-				removeReferencePath(bulletList);
-				bulletList = [];
-				// isEditMode = false;  // to be added in the future
-
-				break;
-			}
+			if (isMutationForTyping) { return; }
 		}
 
-		// second-pass: find a mutation relative to entering edit mode (add a textarea element);
-		// we should then add the reference path relative to the active block;
-		// the logic from the first-pass is nearly identical here;
-		// debugger;
+		internals.isDev && log('observerCallback', { mutationList });
 
-		for (let idx = 0; idx < mutationCount; idx++) {
-			let m = mutationList[idx];
+		// common case: the textarea exists somewhere
+		// TODO: also consider the condition textareaLiveList.item(0).contains(document.activeElement) ?
 
-			if (!isCandidateMutationForAdd(m, mutationCount)) { continue; }
+		if (textareaLiveList.length > 0) {
+			removeReferencePath(blockList);
+			blockList = addReferencePath(textareaLiveList.item(0));	
+		}
 
-			let textareaEl = queryTextarea(m.target, m.addedNodes[0]);
+		// edge case : there is no textarea, but we have instead a Codemirror editor
 
-			if (textareaEl != null) {
-				bulletList = addReferencePath(textareaEl);
-				// isEditMode = true;  // to be added in the future
-
-				break;
+		else if (document.activeElement != null && document.activeElement.className.includes('cm-content')) {
+			let closestBlockEl = document.activeElement.closest('div.rm-block-main');
+			let referencePathAlreadyAdded = closestBlockEl.className.includes(internals.extensionId);
+			
+			if (!referencePathAlreadyAdded) {
+				removeReferencePath(blockList);
+				blockList = addReferencePath(document.activeElement);
 			}
+			else { console.log('reference path already exists @ ', Date.now()) }
+		}
+
+		// common case: there is no textarea and no Codemirror
+
+		else {
+			removeReferencePath(blockList);
+			blockList = [];
 		}
 
 		// optional feature to be added in the future: show reference on hover
@@ -472,8 +521,8 @@ function observeMain ({ selector }) {
 		// 	// we prefer to use div.roam-block instead of rm-block-main to make the hover effect a bit less
 		// 	// intrusive; the logic for the reference path (when hovering) is not affected by this;
 		//
-		// 	let array = Array.from(rootEl.querySelectorAll('div.roam-block:not([data-has-mouse-listeners])'));
-		// 	// let array = Array.from(rootEl.querySelectorAll('div.rm-block-main:not([data-has-mouse-listeners])'));
+		// 	let array = Array.from(targetEl.querySelectorAll('div.roam-block:not([data-has-mouse-listeners])'));
+		// 	// let array = Array.from(targetEl.querySelectorAll('div.rm-block-main:not([data-has-mouse-listeners])'));
 		// 	console.log({ 'array.length': array.length })
 		//
 		// 	for (let idx = 0; idx < array.length; idx++) {
@@ -488,181 +537,122 @@ function observeMain ({ selector }) {
 
 	let observer = new MutationObserver(observerCallback);
 
-	// reference for observerOptions: https://developer.mozilla.org/en-US/docs/Web/API/MutationObserver/observe#parameters
+	// observerOptions: https://developer.mozilla.org/en-US/docs/Web/API/MutationObserver/observe#parameters
 
 	let observerOptions = {
 		subtree: true,
 		childList: true,
 		attributes: false,
-		characterData: false,
+		characterData: true, // useful to observe changes in code editor blocks (in particular, when syntax highlighting is set to "plain text")
 	}
 
-	observer.observe(rootEl, observerOptions);
+	observer.observe(targetEl, observerOptions);
+	targetEl.dataset.observerId = window.crypto.randomUUID();
+	internals.cleaners.push({ 
+		target, 
+		id: targetEl.dataset.observerId,
+		handler: () => { 
 
-	let unloadHandler = () => { 
-
-		log('unloadHandler', { selector });
-
-		observer.disconnect();
-		removeReferencePath(bulletList);
-		removeStyle();
-		bulletList = [];
-		// isEditMode = false;  // to be added in the future
-	};
-
-	internals.unloadHandlers.push(unloadHandler);
+			log('cleaner', { target });
+			observer.disconnect();
+			removeReferencePath(blockList);
+			blockList = [];
+			delete targetEl.dataset.observerId; // use .removeAttribute('data-observer-id') instead?
+			// isEditMode = false;  // to be added in the future
+		} 
+	});
 }
 
-function isMutationForTyping(mutation) {
+function removeReferencePath(_blockList) {
 
-	return true
-		&& mutation.target.tagName === 'TEXTAREA'
-		&& (false
-			|| (mutation.addedNodes.length === 1 && mutation.addedNodes[0].nodeType === 3)  // common case: add/erase 1 character (where the block already has text)
-			|| (mutation.removedNodes.length === 1 && mutation.removedNodes[0].nodeType === 3)  // when the textarea becomes empty
-		);
-}
+	internals.isDev && log('removeReferencePath');
 
-function isCandidateMutationForRemove(mutationObj, mutationCount) {
-
-	let isCandidate = false;
-
-	if (mutationObj.removedNodes.length > 0) {
-		let { className } = mutationObj.target;
-		isCandidate = false 
-			|| className.includes('rm-block-main')
-			|| className.includes('rm-block-children')
-			|| className.includes('roam-main')
-			|| className.includes('roam-article')
-			|| className.includes('rm-block-input')  // delete an empty block with the "delete" key
-			|| className.includes('rm-sidebar-outline')  // create a page in the sidebar and select the initial block
-			|| className === '';  // create a page in the main view and select the initial block
-	}
-
-	return isCandidate;
-}
-
-function isCandidateMutationForAdd(mutationObj, mutationCount) {
-
-	// the logic is slightly different here, as we discover several corner-cases
-
-	let isCandidate = false;
-
-	if (mutationObj.addedNodes.length > 0) {
-		let { className } = mutationObj.target;
-		isCandidate = false 
-			|| className.includes('rm-block-main')
-			|| className.includes('rm-block-children')
-			|| className.includes('roam-main')
-			|| className.includes('roam-article')
-			|| className.includes('rm-block-input')  // delete an empty block with the "delete" key
-			|| className.includes('rm-sidebar-outline')  // create a page in the sidebar and select the initial block
-			|| className === '';  // create a page in the main view and select the initial block
-	}
-	else if (mutationCount === 1) {
-
-		// corner case: when removing an empty block (with the delete key) and the next block is also empty; 
-		// in that case we always have:
-		// 1) mutationList.length === 1
-		// 2) mutationList[0].addedNodes.length === 0
-		// 3) mutationList[0].removedNodes.length === 1
-
-		// we re-evaluate the candidate status with those ad-hoc conditions;
-
-		isCandidate = true
-			&& mutationObj.addedNodes.length === 0 
-			&& mutationObj.removedNodes.length === 1 
-			&& mutationObj.removedNodes[0].className.includes('roam-block-container')
-			&& mutationObj.target.className.includes('rm-block-children');
-	}
-
-	return isCandidate;
-}
-
-function queryTextarea(target, mutatedEl) {
-
-	// we need to check for the textarea element in 2 places: the target element and the added/removed element (mutatedEl);
-	// this is necessary handle a bunch of specific cases (see issue #1);
-	
-	return false
-		|| target.querySelector('textarea')
-		|| (mutatedEl != null && mutatedEl.nodeType === 1 && mutatedEl.querySelector('textarea'))
-		|| (target.tagName === 'TEXTAREA' && target)  // corner-case: delete an empty block with the "delete" key (the target is already the textarea!)
-		|| null; // if all cases fails, null is returned (to mimic a call to querySelector);
-}
-
-function removeReferencePath(_bulletList) {
-
-	log('removeReferencePath');
+	if (_blockList.length === 0) { return }
 
 	let { extensionId } = internals;
 
-	for (let idx = 0; idx < _bulletList.length; idx++) {
-		let bullet = _bulletList[idx];
+	for (let idx = 0; idx < _blockList.length; idx++) {
+		let blockEl = _blockList[idx];
 
-		bullet.style.removeProperty(`--${extensionId}-bullet-scale-factor`);
-		bullet.style.removeProperty(`--${extensionId}-bullet-color`);
+		blockEl.style.removeProperty(`--${extensionId}-bullet-scale-factor`);
+		blockEl.style.removeProperty(`--${extensionId}-bullet-color`);
 		
-		bullet.style.removeProperty(`--${extensionId}-brackets-color`);
-		bullet.style.removeProperty(`--${extensionId}-brackets-weight`);
-		bullet.style.removeProperty(`--${extensionId}-link-color`);
-		bullet.style.removeProperty(`--${extensionId}-link-weight`);
+		blockEl.style.removeProperty(`--${extensionId}-brackets-color`);
+		blockEl.style.removeProperty(`--${extensionId}-brackets-weight`);
+		blockEl.style.removeProperty(`--${extensionId}-link-color`);
+		blockEl.style.removeProperty(`--${extensionId}-link-weight`);
 
-		bullet.style.removeProperty(`--${extensionId}-line-color`);
-		bullet.style.removeProperty(`--${extensionId}-line-roundness`);
-		bullet.style.removeProperty(`--${extensionId}-line-width`);
-		bullet.style.removeProperty(`--${extensionId}-line-style`);
+		blockEl.style.removeProperty(`--${extensionId}-line-color`);
+		blockEl.style.removeProperty(`--${extensionId}-line-roundness`);
+		blockEl.style.removeProperty(`--${extensionId}-line-width`);
+		blockEl.style.removeProperty(`--${extensionId}-line-style`);
+		blockEl.style.removeProperty(`--${extensionId}-line-top`);
+		blockEl.style.removeProperty(`--${extensionId}-line-left`);
 
-		bullet.style.removeProperty(`--${extensionId}-box-width`);
-		bullet.style.removeProperty(`--${extensionId}-box-height`);
+		blockEl.style.removeProperty(`--${extensionId}-box-width`);
+		blockEl.style.removeProperty(`--${extensionId}-box-height`);
 
-		bullet.classList.remove(extensionId);
+		blockEl.classList.remove(extensionId);
 	}
 }
 
-function addReferencePath(el, isHover = false) {
+function addReferencePath(el) {
 
-	log('addReferencePath', { el });
+	internals.isDev && log('addReferencePath', { el });
 
-	let bulletList = [];
-	let bulletCurrent = null, bulletPrevious = null;
+	// removeReferencePath();
 
 	let { extensionId } = internals;
 	let { bulletColorHex, bulletScaleFactor } = internals.settingsCached;
 	let { referenceColorHex, referenceFontWeightValue } = internals.settingsCached;
-	let { lineColorHex, lineRoundness, lineWidth, lineStyle } = internals.settingsCached;
+	let { lineColorHex, lineRoundness, lineWidth, lineStyle, lineTop, lineLeft } = internals.settingsCached;
+	let blockPrevious = null, blockList = [];
 
 	for(;;) {
-		let parentBlockEl = el.closest('div.roam-block-container');
+		let blockContainerEl;
 
-		if (parentBlockEl == null) { break }
+		// optimization to avoid calling .closest(); note that el is re-assigned at the end of this loop,
+		// so usually el is either the textarea or a div.rm-block-children (so we know how to reach the 
+		// closest div.roam-block-container directly, by using only the parentElement property)
 
-		// the 'bullet element'  is technically div.controls > span.rm-bullet; however it is more
-		// convenient to style the wrapper / parent (div.controls)
+		// debugger;
+		if (el.tagName === 'TEXTAREA') {
+			blockContainerEl = el.parentElement.parentElement.parentElement;
+		}
+		else {
+			blockContainerEl = el.parentElement;
+		}
 
-		let bulletCurrent = parentBlockEl.querySelector('div.controls');
+		// common-case
 
-		// make sure querySelector actually got something (because roam might change the css 
-		// class names in the future, in which case we would get an error)
+		if (blockContainerEl.className === '' && blockContainerEl.parentElement.className.includes('roam-article')) { break; }
 
-		if (bulletCurrent == null) { continue }
+		if (!(blockContainerEl.className.includes('roam-block-container'))) {
+			blockContainerEl = el.closest('div.roam-block-container');
+		}
 
-		bulletList.push(bulletCurrent);
-		bulletCurrent.classList.add(extensionId);
+		if (blockContainerEl == null) { break; }
+
+		let blockEl = blockContainerEl.firstElementChild;
+
+		// make sure firstElementChild is the correct element
+
+		if (!(blockEl.className.includes('rm-block-main'))) { continue; }
+
+		blockList.push(blockEl);
+		blockEl.classList.add(extensionId);
 
 		// 1 - set css variables for bullets
 
 		if (bulletColorHex !== 'disabled') {
-			bulletCurrent.style.setProperty(`--${extensionId}-bullet-color`, bulletColorHex);
+			blockEl.style.setProperty(`--${extensionId}-bullet-color`, bulletColorHex);
 		}
 
 		if (bulletScaleFactor !== 'disabled') {
-			bulletCurrent.style.setProperty(`--${extensionId}-bullet-scale-factor`, bulletScaleFactor);
+			blockEl.style.setProperty(`--${extensionId}-bullet-scale-factor`, bulletScaleFactor);
 		}
 
 		// 2 - set css variables for references (brackets and tags)
-		
-		let blockEl = bulletCurrent.nextElementSibling;
 
 		if (referenceColorHex !== 'disabled') {
 			blockEl.style.setProperty(`--${extensionId}-brackets-color`, referenceColorHex);
@@ -674,42 +664,152 @@ function addReferencePath(el, isHover = false) {
 			blockEl.style.setProperty(`--${extensionId}-link-weight`, referenceFontWeightValue);
 		}
 
-		if (bulletPrevious != null) {
+		if (lineColorHex !== 'disabled') {
 
 			// 3 - set css variables for lines
 
-			// reference: https://developer.mozilla.org/en-US/docs/Web/API/Element/getBoundingClientRect
+			let isInitialBlock = (blockPrevious == null);
 
-			let bboxCurrent = bulletCurrent.getBoundingClientRect()
-			let bboxPrevious = bulletPrevious.getBoundingClientRect()
+			if (isInitialBlock) {
+				// make sure the span.bp3-popover-target::before pseudo-element is not drawn for the initial block
 
-			// normally we have boxWidth > 0 and boxHeight > 0, but there are some cases in which 
-			// boxHeight is 0 (embedded blocks)
+				blockEl.style.setProperty(`--${extensionId}-line-width`, '0');
+				blockEl.style.setProperty(`--${extensionId}-box-width`, '0');
+				blockEl.style.setProperty(`--${extensionId}-box-height`, '0');
+			}
+			else {
+				// reference: https://developer.mozilla.org/en-US/docs/Web/API/Element/getBoundingClientRect
 
-			// TODO: in RTL languages this logic must be inverted somehow
+				let bboxCurrent = blockEl.getBoundingClientRect()
+				let bboxPrevious = blockPrevious.getBoundingClientRect()
 
-			let boxWidth = bboxPrevious.x - bboxCurrent.x;
-			let boxHeight = bboxPrevious.y - bboxCurrent.y;
+				// normally we have boxWidth > 0 and boxHeight > 0, but there are some cases in which 
+				// boxHeight is 0 (embedded blocks)
 
-			if (boxWidth > 0 && boxHeight > 0 && lineColorHex !== 'disabled') {
-				bulletCurrent.style.setProperty(`--${extensionId}-line-color`, lineColorHex);
-				bulletCurrent.style.setProperty(`--${extensionId}-line-roundness`, `${lineRoundness}px`);
-				bulletCurrent.style.setProperty(`--${extensionId}-line-width`, `${lineWidth}px`);
-				bulletCurrent.style.setProperty(`--${extensionId}-line-style`, lineStyle);
+				// TODO: in RTL languages this logic must be inverted somehow
 
-				bulletCurrent.style.setProperty(`--${extensionId}-box-width`, `${boxWidth}px`);
-				bulletCurrent.style.setProperty(`--${extensionId}-box-height`, `${boxHeight}px`);				
+				let boxWidthNumeric = bboxPrevious.x - bboxCurrent.x;
+				let boxHeightNumeric = bboxPrevious.y - bboxCurrent.y;
+
+				if (boxWidthNumeric > 0 && boxHeightNumeric > 0) {
+					blockEl.style.setProperty(`--${extensionId}-line-color`, lineColorHex);
+					blockEl.style.setProperty(`--${extensionId}-line-roundness`, `${lineRoundness}`);
+					blockEl.style.setProperty(`--${extensionId}-line-width`, `${lineWidth}`);
+					blockEl.style.setProperty(`--${extensionId}-line-style`, lineStyle);
+					blockEl.style.setProperty(`--${extensionId}-line-top`, `${lineTop}`);
+					blockEl.style.setProperty(`--${extensionId}-line-left`, `${lineLeft}`);
+
+					let boxWidth = `${boxWidthNumeric}px`;
+					let boxHeight = `${boxHeightNumeric}px`;
+
+					blockEl.style.setProperty(`--${extensionId}-box-width`, `${boxWidth}`);
+					blockEl.style.setProperty(`--${extensionId}-box-height`, `${boxHeight}`);			
+				}
 			}
 		}
 
 		// go to the parent and repeat
 
-		bulletPrevious = bulletCurrent;
-		el = parentBlockEl.parentElement;
+		blockPrevious = blockEl;
+		el = blockContainerEl.parentElement;
 
 	}
 
-	return bulletList;
+	return blockList;
+}
+
+// callback for the permanent observer
+
+function observerCallbackMainView (mutationList) {
+
+	mutationList.forEach(mutation => {
+
+		let pageWasClosed = true
+			&& mutation.removedNodes.length > 0
+			&& mutation.removedNodes[0].matches('div.roam-body-main')
+			&& mutation.removedNodes[0].children.length > 0
+			&& mutation.removedNodes[0].children[0].matches('div.rm-article-wrapper');
+
+		let pageWasOpened = true
+			&& mutation.addedNodes.length > 0
+			&& mutation.addedNodes[0].matches('div.roam-body-main')
+			&& mutation.addedNodes[0].children.length > 0
+			&& mutation.addedNodes[0].children[0].matches('div.rm-article-wrapper');
+		
+		// debugger;
+		if (pageWasClosed) {
+			stopObserver({ observerId: mutation.removedNodes[0].children[0].dataset.observerId });
+		}
+
+		if (pageWasOpened) {
+			startTemporaryObserver({ target: 'div.rm-article-wrapper' });
+		}
+	});
+}
+
+// callback for the permanent observer
+
+function observerCallbackSidebar (mutationList) {
+
+	mutationList.forEach(mutation => {
+
+		let sidebarWasClosed = true
+			&& mutation.removedNodes.length > 0
+			&& mutation.removedNodes[0].matches('div#roam-right-sidebar-content');
+
+		let sidebarWasOpened = true
+			&& mutation.addedNodes.length > 0
+			&& mutation.addedNodes[0].matches('div#roam-right-sidebar-content');
+		
+		// debugger;
+		if (sidebarWasClosed) {
+			stopObserver({ observerId: mutation.removedNodes[0].dataset.observerId });
+		}
+
+		if (sidebarWasOpened) {
+			startTemporaryObserver({ target: 'div#roam-right-sidebar-content' });
+		}
+	});
+}
+
+function startPermanentObserver({ target, observerCallback }) {
+
+	let observer = new MutationObserver(observerCallback);
+
+	internals.cleaners.push({ 
+		target, 
+		handler: () => { observer.disconnect(); } 
+	});
+
+	let observerOptions = {
+		subtree: false,
+		childList: true,
+		attributes: false,
+		characterData: false,
+	}
+
+	observer.observe(document.querySelector(target), observerOptions);
+}
+
+function stopObserver({ observerId }) {
+
+	if (observerId == null) { return; }
+
+	if (observerId === 'all') {
+		for (let cleaner of internals.cleaners) {
+			cleaner.handler();
+		}
+
+		internals.cleaners = [];
+		return;
+	}
+
+	let idx = internals.cleaners.findIndex(o => o.id === observerId);
+
+	if (idx === -1) { return }
+
+	internals.cleaners[idx].handler();
+	internals.cleaners.splice(idx, 1);
 }
 
 export default {
