@@ -61,14 +61,15 @@ function onload({ extensionAPI }) {
 	log('ONLOAD (start)');
 
 	internals.extensionAPI = extensionAPI;
+
 	initializeSettings();
 	resetStyle();
-	
-	startPermanentObserver({ target: 'div.roam-main', observerCallback: observerCallbackMainView });
-	startPermanentObserver({ target: 'div#right-sidebar', observerCallback: observerCallbackSidebar });
 
-	startTemporaryObserver({ target: 'div.rm-article-wrapper' });
-	startTemporaryObserver({ target: 'div#roam-right-sidebar-content' });
+	startPermanentObserver({ target: document.querySelector('div.roam-main') });
+	startPermanentObserver({ target: document.querySelector('div#right-sidebar') });
+
+	startTemporaryObserver({ target: document.querySelector('div.rm-article-wrapper') });
+	startTemporaryObserver({ target: document.querySelector('div#roam-right-sidebar-content') });
 
 	log('ONLOAD (end)');
 }
@@ -77,7 +78,7 @@ function onunload() {
 
 	log('ONUNLOAD (start)');
 
-	stopObserver({ observerId: 'all' });
+	stopObserver({ target: 'all' });
 	removeStyle();
 
 	log('ONUNLOAD (end)');
@@ -110,7 +111,7 @@ function initializeSettings() {
 			// roam uses tailwindcss, but the full color palette is not available in the css loaded by roam; 
 			// so we add  the full palette manually in internals.tailwindColors (at the bottom);
 			items: ['gray', 'slate (gray variant)', 'zinc (gray variant)', 'neutral (gray variant)', 'stone (gray variant)', 'red', 'orange', 'amber', 'yellow', 'lime', 'green', 'emerald', 'teal', 'cyan', 'sky', 'blue', 'indigo', 'violet', 'purple', 'fuchsia', 'pink', 'rose'],
-			onChange: value => { updateSettingsCached({ key: 'color', value }); resetStyle(); },
+			onChange: value => { updateSettingsCached({ key: 'color', value }) },
 		}		
 	});
 
@@ -121,7 +122,7 @@ function initializeSettings() {
 		action: {
 			type: 'select',
 			items: ['disabled', '100', '200', '300', '400', '500', '600', '700', '800', '900'],
-			onChange: value => { updateSettingsCached({ key: 'bulletColorShade', value }); resetStyle(); },
+			onChange: value => { updateSettingsCached({ key: 'bulletColorShade', value }) },
 		}		
 	});
 
@@ -132,7 +133,7 @@ function initializeSettings() {
 		action: {
 			type: 'select',
 			items: ['disabled', '1.25', '1.5', '1.75', '2', '2.25', '2.5'],
-			onChange: value => { updateSettingsCached({ key: 'bulletScaleFactor', value }); resetStyle(); },
+			onChange: value => { updateSettingsCached({ key: 'bulletScaleFactor', value }) },
 		},
 	});
 
@@ -143,7 +144,7 @@ function initializeSettings() {
 		action: {
 			type: 'select',
 			items: ['disabled', '100', '200', '300', '400', '500', '600', '700', '800', '900'],
-			onChange: value => { updateSettingsCached({ key: 'referenceColorShade', value }); resetStyle(); },
+			onChange: value => { updateSettingsCached({ key: 'referenceColorShade', value }) },
 		}		
 	});
 
@@ -155,7 +156,7 @@ function initializeSettings() {
 			type: 'select',
 			// weight names corresponding to ['300', '400', '500', '600', '700']
 			items: ['disabled', 'light', 'normal', 'medium', 'semibold', 'bold'],
-			onChange: value => { updateSettingsCached({ key: 'referenceFontWeightDescription', value }); resetStyle(); },
+			onChange: value => { updateSettingsCached({ key: 'referenceFontWeightDescription', value }) },
 		},
 	});
 
@@ -166,7 +167,7 @@ function initializeSettings() {
 		action: {
 			type: 'select',
 			items: ['disabled', '100', '200', '300', '400', '500', '600', '700', '800', '900'],
-			onChange: value => { updateSettingsCached({ key: 'lineColorShade', value }); resetStyle(); },
+			onChange: value => { updateSettingsCached({ key: 'lineColorShade', value }) },
 		}		
 	});
 
@@ -178,7 +179,7 @@ function initializeSettings() {
 			type: 'select',
 			// TODO: consider subpixel values? does any browser actually implements them for border-width?
 			items: ['1px', '2px', '3px'],
-			onChange: value => { updateSettingsCached({ key: 'lineWidth', value }); resetStyle(); },
+			onChange: value => { updateSettingsCached({ key: 'lineWidth', value }) },
 		},
 	});
 
@@ -189,7 +190,7 @@ function initializeSettings() {
 		action: {
 			type: 'select',
 			items: ['solid', 'dotted', 'dashed'],
-			onChange: value => { updateSettingsCached({ key: 'lineStyle', value }); resetStyle(); },
+			onChange: value => { updateSettingsCached({ key: 'lineStyle', value }) },
 		},
 	});
 
@@ -200,7 +201,7 @@ function initializeSettings() {
 		action: {
 			type: 'select',
 			items: ['0px', '1px', '2px', '3px', '4px', '5px', '6px', '7px', '8px', '9px'],
-			onChange: value => { updateSettingsCached({ key: 'lineRoundness', value }); resetStyle(); },
+			onChange: value => { updateSettingsCached({ key: 'lineRoundness', value }) },
 		},
 	});
 
@@ -211,7 +212,7 @@ function initializeSettings() {
 		action: {
 			type: 'select',
 			items: ['auto', '7.5px', '8px', '8.5px', '9px', '9.5px', '10px', '10.5px', '11px', '11.5px'],
-			onChange: value => { updateSettingsCached({ key: 'lineTopOffset', value }); resetStyle(); },
+			onChange: value => { updateSettingsCached({ key: 'lineTopOffset', value }) },
 		},
 	});
 
@@ -222,7 +223,7 @@ function initializeSettings() {
 		action: {
 			type: 'select',
 			items: ['auto', '4px', '4.5px', '5px', '5.5px', '6px', '6.5px', '7px', '7.5px', '8px'],
-			onChange: value => { updateSettingsCached({ key: 'lineLeftOffset', value }); resetStyle(); },
+			onChange: value => { updateSettingsCached({ key: 'lineLeftOffset', value }) },
 		},
 	});
 
@@ -234,6 +235,8 @@ function initializeSettings() {
 
 	// cache the panel settings internally for best performance;
 	// if necessary, initialize the panel settings with our default values;
+	// the styles will be reseted manually in onload, to avoid adding/removing
+	// incomplete style tag several times;
 
 	settingsKeys.forEach(key => {
 
@@ -244,11 +247,11 @@ function initializeSettings() {
 			extensionAPI.settings.set(key, value);
 		}
 		
-		updateSettingsCached({ key, value });
+		updateSettingsCached({ key, value, resetStyle: false });
 	});
 }
 
-function updateSettingsCached({ key, value }) {
+function updateSettingsCached({ key, value, resetStyle: _resetStyle }) {
 
 	internals.settingsCached[key] = value;
 
@@ -260,6 +263,12 @@ function updateSettingsCached({ key, value }) {
 	internals.settingsCached.referenceColorHex = getColorHex({ shade: referenceColorShade });
 	internals.settingsCached.lineColorHex = getColorHex({ shade: lineColorShade });
 	internals.settingsCached.referenceFontWeightValue = getFontWeightValue({ fontWeightDescription: referenceFontWeightDescription });
+	
+	// styles are reseted here, unless we explicitly say otherise
+
+	if (_resetStyle !== false) {
+		resetStyle();
+	}
 
 	log('updateSettingsCached', { key, value, 'internals.settingsCached': internals.settingsCached });
 }
@@ -314,10 +323,10 @@ function removeStyle() {
 
 	log('removeStyle');
 
-	// we assume no one else has added a <style data-id="reference-path-28373625"> before, which seems
+	// we assume no one else has added a <style data-extension-id="reference-path-28373625"> before, which seems
 	// to be a strong hypothesis
 
-	let extensionStyles = Array.from(document.head.querySelectorAll(`style[data-id^="${internals.extensionId}"]`));
+	let extensionStyles = Array.from(document.head.querySelectorAll(`style[data-extension-id^="${internals.extensionId}"]`));
 	extensionStyles.forEach(el => { el.remove() });
 }
 
@@ -402,7 +411,7 @@ function addStyle() {
 	let extensionStyle = document.createElement('style');
 
 	extensionStyle.textContent = textContent;
-	extensionStyle.dataset.id = `${extensionId}-${Date.now()}`;
+	extensionStyle.dataset.extensionId = `${extensionId}-${Date.now()}`;
 	extensionStyle.dataset.title = `dynamic styles added by the ${extensionId} extension`;
 
 	document.head.appendChild(extensionStyle);
@@ -410,13 +419,14 @@ function addStyle() {
 
 function startTemporaryObserver ({ target }) {
 
-	let targetEl = document.querySelector(target);
-
-	if (targetEl == null || targetEl.dataset.observerId != null) { return }
+	if (target == null) { return }
 
 	log('main');
 
-	let blockList = [];  // array of nodes
+	// private array to store a list of div.rm-block-main 
+	// (the elements where we will add our custom css properties)
+
+	let blockList = [];  
 	
 	// optional feature to be added in the future: show reference on hover
 
@@ -450,14 +460,14 @@ function startTemporaryObserver ({ target }) {
 	// https://humanwhocodes.com/blog/2010/09/28/why-is-getelementsbytagname-faster-that-queryselectorall/
 	// https://gomakethings.com/javascript-selector-performance/
 
-	// this assumes that the only textarea element inside targetEl is the one that exists
+	// this assumes that the only textarea element inside target is the one that exists
 	// when a block is being edited
 
-	let textareaLiveList = targetEl.getElementsByTagName('textarea');
+	let textareaLiveList = target.getElementsByTagName('textarea');
 
 	// reference: https://developer.mozilla.org/en-US/docs/Web/API/MutationObserver/MutationObserver
 
-	let observerCallback = function observerCallback (mutationList) {
+	let callback = function observerCallbackForTextarea (mutationList) {
 
 		// return early 1: typing in the active block (in edit mode)
 
@@ -485,7 +495,7 @@ function startTemporaryObserver ({ target }) {
 
 		internals.isDev && log('observerCallback', { mutationList });
 
-		// common case: the textarea exists somewhere
+		// common case: when the textarea exists somewhere
 		// TODO: also consider the condition textareaLiveList.item(0).contains(document.activeElement) ?
 
 		if (textareaLiveList.length > 0) {
@@ -493,11 +503,18 @@ function startTemporaryObserver ({ target }) {
 			blockList = addReferencePath(textareaLiveList.item(0));	
 		}
 
-		// edge case : there is no textarea, but we have instead a Codemirror editor
+		// common case: there is no textarea and the focus IS NOT in a code block
 
-		else if (document.activeElement != null && document.activeElement.className.includes('cm-content')) {
-			let closestBlockEl = document.activeElement.closest('div.rm-block-main');
-			let referencePathAlreadyAdded = closestBlockEl.className.includes(internals.extensionId);
+		else if (textareaLiveList.length === 0 && (document.activeElement != null && !document.activeElement.className.includes('cm-content'))) {
+			removeReferencePath(blockList);
+			blockList = [];
+		}	
+			
+		// edge case: there is no textarea and the focus IS in a code block
+
+		else if (textareaLiveList.length === 0 && (document.activeElement != null && document.activeElement.className.includes('cm-content'))) {
+			let closestBlock = document.activeElement.closest('div.rm-block-main');
+			let referencePathAlreadyAdded = closestBlock.className.includes(internals.extensionId);
 			
 			if (!referencePathAlreadyAdded) {
 				removeReferencePath(blockList);
@@ -506,13 +523,7 @@ function startTemporaryObserver ({ target }) {
 			else { console.log('reference path already exists @ ', Date.now()) }
 		}
 
-		// common case: there is no textarea and no Codemirror
-
-		else {
-			removeReferencePath(blockList);
-			blockList = [];
-		}
-
+		
 		// optional feature to be added in the future: show reference on hover
 
 		// if (internals.settingsCached.showOnHover) {
@@ -520,8 +531,8 @@ function startTemporaryObserver ({ target }) {
 		// 	// we prefer to use div.roam-block instead of rm-block-main to make the hover effect a bit less
 		// 	// intrusive; the logic for the reference path (when hovering) is not affected by this;
 		//
-		// 	let array = Array.from(targetEl.querySelectorAll('div.roam-block:not([data-has-mouse-listeners])'));
-		// 	// let array = Array.from(targetEl.querySelectorAll('div.rm-block-main:not([data-has-mouse-listeners])'));
+		// 	let array = Array.from(target.querySelectorAll('div.roam-block:not([data-has-mouse-listeners])'));
+		// 	// let array = Array.from(target.querySelectorAll('div.rm-block-main:not([data-has-mouse-listeners])'));
 		// 	console.log({ 'array.length': array.length })
 		//
 		// 	for (let idx = 0; idx < array.length; idx++) {
@@ -534,32 +545,33 @@ function startTemporaryObserver ({ target }) {
 		// }
 	};
 
-	let observer = new MutationObserver(observerCallback);
-
 	// observerOptions: https://developer.mozilla.org/en-US/docs/Web/API/MutationObserver/observe#parameters
+	// characterData is useful to observe changes in code editor blocks (in particular, when syntax highlighting is set to "plain text")
 
-	let observerOptions = {
+	let options = {
 		subtree: true,
 		childList: true,
-		attributes: false,
-		characterData: true, // useful to observe changes in code editor blocks (in particular, when syntax highlighting is set to "plain text")
+		characterData: true, 
 	}
 
-	observer.observe(targetEl, observerOptions);
-	targetEl.dataset.observerId = window.crypto.randomUUID();
-	internals.cleaners.push({ 
-		target, 
-		id: targetEl.dataset.observerId,
-		handler: () => { 
+	let { observer, observerId } = startObserver({ target, callback, options });
+	
+	if (observer != null) {
+		internals.cleaners.push({ 
+			observerId,
+			handler: () => { 
 
-			log('cleaner', { target });
-			observer.disconnect();
-			removeReferencePath(blockList);
-			blockList = [];
-			delete targetEl.dataset.observerId; // use .removeAttribute('data-observer-id') instead?
-			// isEditMode = false;  // to be added in the future
-		} 
-	});
+				log('cleaner for temporary observer', { observerId });
+				debugger;
+				observer.disconnect();
+				delete target.dataset.observerId; // use .removeAttribute('data-observer-id') instead?
+				removeReferencePath(blockList);
+				blockList = [];
+				// isEditMode = false;  // to be added in the future
+			} 
+		});		
+	}
+
 }
 
 function removeReferencePath(_blockList) {
@@ -609,7 +621,7 @@ function getLineTopOffset(lineWidth) {
 	else if (lineWidth === 3) {
 		lineTopOffset = '10.5px';
 	}
-	// debugger;
+
 	return lineTopOffset;
 }
 
@@ -627,7 +639,7 @@ function getLineLeftOffset(lineWidth, bulletScaleFactor) {
 	else if (lineWidth === 3) {
 		lineLeftOffset = '5px';
 	}
-	// debugger;
+
 	return lineLeftOffset;
 
 }
@@ -764,84 +776,113 @@ function addReferencePath(el) {
 	return blockList;
 }
 
-// callback for the permanent observer
+function startPermanentObserver({ target }) {
 
-function observerCallbackMainView (mutationList) {
+	let callback;
 
-	mutationList.forEach(mutation => {
+	if (target.matches('div.roam-main')) {
+		callback = function observerCallbackForMainView (mutationList) {
 
-		let pageWasClosed = true
-			&& mutation.removedNodes.length > 0
-			&& mutation.removedNodes[0].matches('div.roam-body-main')
-			&& mutation.removedNodes[0].children.length > 0
-			&& mutation.removedNodes[0].children[0].matches('div.rm-article-wrapper');
+			mutationList.forEach(mutation => {
 
-		let pageWasOpened = true
-			&& mutation.addedNodes.length > 0
-			&& mutation.addedNodes[0].matches('div.roam-body-main')
-			&& mutation.addedNodes[0].children.length > 0
-			&& mutation.addedNodes[0].children[0].matches('div.rm-article-wrapper');
-		
-		// debugger;
-		if (pageWasClosed) {
-			stopObserver({ observerId: mutation.removedNodes[0].children[0].dataset.observerId });
+				// a page is opened/closed when this element is added/removed: target > div.roam-body-main > div.rm-article-wrapper
+
+				let pageWasOpened = true
+					&& mutation.addedNodes.length > 0
+					&& mutation.addedNodes[0].children.length > 0
+					&& mutation.addedNodes[0].children[0].matches('div.roam-body-main > div.rm-article-wrapper');
+
+				if (pageWasOpened) {
+					startTemporaryObserver({ target: document.querySelector('div.roam-body-main > div.rm-article-wrapper') });
+				}
+
+				let pageWasClosed = true
+					&& mutation.removedNodes.length > 0
+					&& mutation.removedNodes[0].children.length > 0
+					&& mutation.removedNodes[0].children[0].matches('div.roam-body-main > div.rm-article-wrapper');
+
+				if (pageWasClosed) {
+					// stopObserver({ observerId: mutation.removedNodes[0].children[0].dataset.observerId });
+					stopObserver({ target: mutation.removedNodes[0].children[0] });
+				}
+			});
 		}
+	}
+	else if (target.matches('div#right-sidebar')) {
+		callback = function observerCallbackForSidebar (mutationList) {
 
-		if (pageWasOpened) {
-			startTemporaryObserver({ target: 'div.rm-article-wrapper' });
+			mutationList.forEach(mutation => {
+
+				// the sidebar is opened/closed when this element is added/removed: target > div#roam-right-sidebar-content
+
+				let sidebarWasOpened = true
+					&& mutation.addedNodes.length > 0
+					&& mutation.addedNodes[0].matches('div#roam-right-sidebar-content');
+
+				if (sidebarWasOpened) {
+					startTemporaryObserver({ target: document.querySelector('div#roam-right-sidebar-content') });
+				}
+
+				let sidebarWasClosed = true
+					&& mutation.removedNodes.length > 0
+					&& mutation.removedNodes[0].matches('div#roam-right-sidebar-content');
+
+				if (sidebarWasClosed) {
+					stopObserver({ observerId: mutation.removedNodes[0] });
+				}
+
+			});
 		}
-	});
-}
-
-// callback for the permanent observer
-
-function observerCallbackSidebar (mutationList) {
-
-	mutationList.forEach(mutation => {
-
-		let sidebarWasClosed = true
-			&& mutation.removedNodes.length > 0
-			&& mutation.removedNodes[0].matches('div#roam-right-sidebar-content');
-
-		let sidebarWasOpened = true
-			&& mutation.addedNodes.length > 0
-			&& mutation.addedNodes[0].matches('div#roam-right-sidebar-content');
-		
-		// debugger;
-		if (sidebarWasClosed) {
-			stopObserver({ observerId: mutation.removedNodes[0].dataset.observerId });
-		}
-
-		if (sidebarWasOpened) {
-			startTemporaryObserver({ target: 'div#roam-right-sidebar-content' });
-		}
-	});
-}
-
-function startPermanentObserver({ target, observerCallback }) {
-
-	let observer = new MutationObserver(observerCallback);
-
-	internals.cleaners.push({ 
-		target, 
-		handler: () => { observer.disconnect(); } 
-	});
-
-	let observerOptions = {
-		subtree: false,
-		childList: true,
-		attributes: false,
-		characterData: false,
 	}
 
-	observer.observe(document.querySelector(target), observerOptions);
+	// for the permanent observers we want to only monitor the target element!
+
+	let options = {
+		subtree: false,
+		childList: true
+	}
+
+	let { observer, observerId } = startObserver({ target, callback, options });
+
+	if (observer != null) {
+		internals.cleaners.push({ 
+			observerId, 
+			handler: () => { 
+
+				log('cleaner for permanent observer', { observerId });
+				debugger;
+				observer.disconnect(); 
+				delete target.dataset.observerId;
+			}
+		});		
+	}
 }
 
-function stopObserver({ observerId }) {
+// start one observer (abstract)
 
-	if (observerId == null) { return; }
+function startObserver({ target, callback, options }) {
 
-	if (observerId === 'all') {
+	let out = {}
+
+	if (target == null || target.dataset.observerId != null) { return out }
+
+	let observer = new MutationObserver(callback);
+	observer.observe(target, options);
+
+	let observerId = window.crypto.randomUUID();
+	
+	target.dataset.observerId = observerId;
+
+	out = { observer, observerId }
+
+	return out;
+}
+
+// stop one (or all) observer(s)
+
+function stopObserver({ target }) {
+
+	if (target === 'all') {
 		for (let cleaner of internals.cleaners) {
 			cleaner.handler();
 		}
@@ -849,13 +890,17 @@ function stopObserver({ observerId }) {
 		internals.cleaners = [];
 		return;
 	}
+	else {
+		if (target == null) { return; }
+		debugger;
+		let idx = internals.cleaners.findIndex(o => o.observerId === target.dataset.observerId);
 
-	let idx = internals.cleaners.findIndex(o => o.id === observerId);
+		if (idx === -1) { return }
 
-	if (idx === -1) { return }
+		internals.cleaners[idx].handler();
+		internals.cleaners.splice(idx, 1);		
+	}
 
-	internals.cleaners[idx].handler();
-	internals.cleaners.splice(idx, 1);
 }
 
 export default {
