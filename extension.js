@@ -12,7 +12,6 @@ internals.extensionId = 'roam-reference-path';
 internals.isDev = String(new URLSearchParams(window.location.search).get('dev')).includes('true');
 internals.extensionAPI = null;
 internals.cleaners = [];
-//internals.blockList = [];
 
 internals.settingsCached = {
 	color: null,
@@ -27,8 +26,8 @@ internals.settingsCached = {
 	lineWidth: null,
 	lineStyle: null,
 	lineRoundness: null,
-	lineTop: null,
-	lineLeft: null,
+	lineTopOffset: null,
+	lineLeftOffset: null,
 	// showOnHover: null,  // to be added in the future
 
 	// derived settings
@@ -52,8 +51,8 @@ internals.settingsDefault = {
 	lineWidth: '1px',
 	lineStyle: 'solid',
 	lineRoundness: '2px',
-	lineTop: '9px',
-	lineLeft: '6px',
+	lineTopOffset: 'auto',
+	lineLeftOffset: 'auto',
 	// showOnHover: false  // to be added in the future
 };
 
@@ -132,7 +131,7 @@ function initializeSettings() {
 		description: 'Use 2 to make the bullet size twice of the original size.',
 		action: {
 			type: 'select',
-			items: ['disabled', '0.75', '1', '1.25', '1.5', '1.75', '2', '2.25', '2.5'],
+			items: ['disabled', '1.25', '1.5', '1.75', '2', '2.25', '2.5'],
 			onChange: value => { updateSettingsCached({ key: 'bulletScaleFactor', value }); resetStyle(); },
 		},
 	});
@@ -197,7 +196,7 @@ function initializeSettings() {
 	panelConfig.settings.push({
 		id: 'lineRoundness',
 		name: 'Lines: corner roundness',
-		description: 'Use 0px for no roundness, that is, to obtain right angle corners.',
+		description: 'Use 0px for no roundness, that is, to get right angle corners.',
 		action: {
 			type: 'select',
 			items: ['0px', '1px', '2px', '3px', '4px', '5px', '6px', '7px', '8px', '9px'],
@@ -206,24 +205,24 @@ function initializeSettings() {
 	});
 
 	panelConfig.settings.push({
-		id: 'lineTop',
+		id: 'lineTopOffset',
 		name: 'Lines: top offset (ADVANCED)',
-		description: 'Use only if the line seems out of place vertically. Recommended value: 9px.',
+		description: 'Use a value different from auto only if the line seems out of place vertically. Recommended values are between 9.5px and 10.5px (depends on the line width).',
 		action: {
 			type: 'select',
-			items: ['7px', '7.25px', '7.5px', '7.75px', '8px', '8.25px', '8.5px', '8.75px', '9px', '9.25px', '9.5px', '9.75px', '10px', '10.25px', '10.5px', '10.75px', '11px'],
-			onChange: value => { updateSettingsCached({ key: 'lineTop', value }); resetStyle(); },
+			items: ['auto', '7.5px', '8px', '8.5px', '9px', '9.5px', '10px', '10.5px', '11px', '11.5px'],
+			onChange: value => { updateSettingsCached({ key: 'lineTopOffset', value }); resetStyle(); },
 		},
 	});
 
 	panelConfig.settings.push({
-		id: 'lineLeft',
+		id: 'lineLeftOffset',
 		name: 'Lines: left offset (ADVANCED)',
-		description: 'Use only if the line seems out of place horizontally. Recommended value: 6px.',
+		description: 'Use a value different from auto only if the line seems out of place horizontally. Recommended values are between 5px and 6px (depends on the line width).',
 		action: {
 			type: 'select',
-			items: ['4px', '4.25px', '4.5px', '4.75px', '5px', '5.25px', '5.5px', '5.75px', '6px', '6.25px', '6.5px', '6.75px', '7px', '7.25px', '7.5px', '7.75px', '8px'],
-			onChange: value => { updateSettingsCached({ key: 'lineLeft', value }); resetStyle(); },
+			items: ['auto', '4px', '4.5px', '5px', '5.5px', '6px', '6.5px', '7px', '7.5px', '8px'],
+			onChange: value => { updateSettingsCached({ key: 'lineLeftOffset', value }); resetStyle(); },
 		},
 	});
 
@@ -387,8 +386,8 @@ function addStyle() {
 				border-style: var(--${extensionId}-line-style);
 				border-bottom-left-radius: var(--${extensionId}-line-roundness);
 				position: absolute;
-				top: var(--${extensionId}-line-top);
-				left: var(--${extensionId}-line-left);
+				top: var(--${extensionId}-line-top-offset);
+				left: var(--${extensionId}-line-left-offset);
 				width: var(--${extensionId}-box-width); 
 				height: var(--${extensionId}-box-height);
 				content: '';
@@ -586,14 +585,51 @@ function removeReferencePath(_blockList) {
 		blockEl.style.removeProperty(`--${extensionId}-line-roundness`);
 		blockEl.style.removeProperty(`--${extensionId}-line-width`);
 		blockEl.style.removeProperty(`--${extensionId}-line-style`);
-		blockEl.style.removeProperty(`--${extensionId}-line-top`);
-		blockEl.style.removeProperty(`--${extensionId}-line-left`);
+		blockEl.style.removeProperty(`--${extensionId}-line-top-offset`);
+		blockEl.style.removeProperty(`--${extensionId}-line-left-offset`);
 
 		blockEl.style.removeProperty(`--${extensionId}-box-width`);
 		blockEl.style.removeProperty(`--${extensionId}-box-height`);
 
 		blockEl.classList.remove(extensionId);
 	}
+}
+
+function getLineTopOffset(lineWidth) {
+
+	lineWidth = parseFloat(lineWidth);
+	let lineTopOffset = '';
+
+	if (lineWidth === 1) {
+		lineTopOffset = '9.5px';
+	}
+	else if (lineWidth === 2) {
+		lineTopOffset = '10px';
+	}
+	else if (lineWidth === 3) {
+		lineTopOffset = '10.5px';
+	}
+	// debugger;
+	return lineTopOffset;
+}
+
+function getLineLeftOffset(lineWidth, bulletScaleFactor) {
+
+	lineWidth = parseFloat(lineWidth);
+	let lineLeftOffset = '';
+
+	if (lineWidth === 1) {
+		lineLeftOffset = '6px';
+	}
+	else if (lineWidth === 2) {
+		lineLeftOffset = '5.5px';
+	}
+	else if (lineWidth === 3) {
+		lineLeftOffset = '5px';
+	}
+	// debugger;
+	return lineLeftOffset;
+
 }
 
 function addReferencePath(el) {
@@ -605,8 +641,18 @@ function addReferencePath(el) {
 	let { extensionId } = internals;
 	let { bulletColorHex, bulletScaleFactor } = internals.settingsCached;
 	let { referenceColorHex, referenceFontWeightValue } = internals.settingsCached;
-	let { lineColorHex, lineRoundness, lineWidth, lineStyle, lineTop, lineLeft } = internals.settingsCached;
+	let { lineColorHex, lineRoundness, lineWidth, lineStyle, lineTopOffset, lineLeftOffset } = internals.settingsCached;
 	let blockPrevious = null, blockList = [];
+
+	if (lineColorHex !== 'disabled') {
+		if (lineTopOffset === 'auto') {
+			lineTopOffset = getLineTopOffset(lineWidth);
+		}
+
+		if (lineLeftOffset === 'auto') {
+			lineLeftOffset = getLineLeftOffset(lineWidth);
+		}
+	}
 
 	for(;;) {
 		let blockContainerEl;
@@ -692,12 +738,12 @@ function addReferencePath(el) {
 				let boxHeightNumeric = bboxPrevious.y - bboxCurrent.y;
 
 				if (boxWidthNumeric > 0 && boxHeightNumeric > 0) {
-					blockEl.style.setProperty(`--${extensionId}-line-color`, lineColorHex);
-					blockEl.style.setProperty(`--${extensionId}-line-roundness`, `${lineRoundness}`);
 					blockEl.style.setProperty(`--${extensionId}-line-width`, `${lineWidth}`);
+					blockEl.style.setProperty(`--${extensionId}-line-color`, lineColorHex);
 					blockEl.style.setProperty(`--${extensionId}-line-style`, lineStyle);
-					blockEl.style.setProperty(`--${extensionId}-line-top`, `${lineTop}`);
-					blockEl.style.setProperty(`--${extensionId}-line-left`, `${lineLeft}`);
+					blockEl.style.setProperty(`--${extensionId}-line-roundness`, `${lineRoundness}`);
+					blockEl.style.setProperty(`--${extensionId}-line-top-offset`, `${lineTopOffset}`);
+					blockEl.style.setProperty(`--${extensionId}-line-left-offset`, `${lineLeftOffset}`);
 
 					let boxWidth = `${boxWidthNumeric}px`;
 					let boxHeight = `${boxHeightNumeric}px`;
