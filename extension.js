@@ -238,8 +238,7 @@ function initializeSettings() {
 	// the styles will be reseted manually in onload, to avoid adding/removing
 	// incomplete style tag several times;
 
-	settingsKeys.forEach(key => {
-
+	for (let key of settingsKeys) {
 		let value = extensionAPI.settings.get(key);
 
 		if (value == null) {
@@ -248,7 +247,7 @@ function initializeSettings() {
 		}
 		
 		updateSettingsCached({ key, value, resetStyle: false });
-	});
+	}
 }
 
 function updateSettingsCached({ key, value, resetStyle: _resetStyle }) {
@@ -273,11 +272,11 @@ function updateSettingsCached({ key, value, resetStyle: _resetStyle }) {
 	log('updateSettingsCached', { key, value, 'internals.settingsCached': internals.settingsCached });
 }
 
-function getColorHex({ color, shade }) {
+function getColorHex({ shade }) {
 
-	if (shade === 'disabled') { return 'disabled' } 
+	let { color } = internals.settingsCached;
 
-	if (color == null) { color = internals.settingsCached.color }
+	if (shade === 'disabled' || color == null) { return 'disabled' } 
 
 	color = color.split('(')[0].trim();  // strip the '(' from the grays
 	let shadeIdx = Math.floor(Number(shade) / 100);  // we want a mapping like { 50: 0, 100: 1, 200: 2, ... }
@@ -327,7 +326,10 @@ function removeStyle() {
 	// to be a strong hypothesis
 
 	let extensionStyles = Array.from(document.head.querySelectorAll(`style[data-extension-id^="${internals.extensionId}"]`));
-	extensionStyles.forEach(el => { el.remove() });
+
+	for (let styleEl of extensionStyles) {
+		styleEl.remove()	
+	}
 }
 
 function addStyle() {
@@ -423,38 +425,10 @@ function startTemporaryObserver ({ target }) {
 
 	log('main');
 
-	// private array to store a list of div.rm-block-main 
-	// (the elements where we will add our custom css properties)
+	// private array to store a list of div.rm-block-main (the elements where we will add
+	// our custom css properties)
 
 	let blockList = [];  
-	
-	// optional feature to be added in the future: show reference on hover
-
-	// let isEditMode = false;
-
-	// let onMouseEnter = function onMouseEnter (ev) {
-	// 	console.log('onMouseEnter @ ' + Date.now(), ev.type, ev, target)
-	//
-	// 	if(isEditMode) {
-	// 		console.log('  skipping', { isEditMode })
-	// 		return;
-	// 	}
-	//
-	// 	blockList = addReferencePath(ev.target);
-	// }
-
-	// let onMouseLeave = function onMouseLeave (ev) {
-	// 	console.log('onMouseLeave @ ' + Date.now(), ev.type, ev, target);
-	//
-	// 	if(isEditMode) {
-	// 		console.log('  skipping', { isEditMode })
-	// 		return;
-	// 	}
-	//
-	// 	removeReferencePath(blockList);
-	// 	blockList = [];
-	// }
-
 
 	// there is some evidence that getElementsByTagName is faster than querySelector
 	// https://humanwhocodes.com/blog/2010/09/28/why-is-getelementsbytagname-faster-that-queryselectorall/
@@ -474,13 +448,12 @@ function startTemporaryObserver ({ target }) {
 		let mutationCount = mutationList.length;
 		let isProbablyTyping = (mutationCount === 1);
 		
-		// if (isProbablyTyping && isMutationForTyping(mutationList[0])) { return }
 		if (isProbablyTyping) {
 
 			let mutation0 = mutationList[0];
 
 			// 2 cases to consider
-			// 1) the textarea/block does not become empty (common case)
+			// 1) the textarea/block does not become empty with the mutation (common case)
 			// 2) the textarea/block becomes empty (example: using the backspace on the last character)
 
 			let isMutationForTyping = true
@@ -493,60 +466,50 @@ function startTemporaryObserver ({ target }) {
 			if (isMutationForTyping) { return; }
 		}
 
+		// return early 2: are there any other special cases to consider?
+
 		internals.isDev && log('observerCallback', { mutationList });
 
-		// common case: when the textarea exists somewhere
-		// TODO: also consider the condition textareaLiveList.item(0).contains(document.activeElement) ?
+		// is there any situation where we 2 or more textareas?
 
-		if (textareaLiveList.length > 0) {
+		if (internals.isDev && textareaLiveList.length > 1) { debugger }
+
+		// common case: when the textarea exists somewhere
+		
+		if (textareaLiveList.length > 0 /*&& textareaLiveList.item(0).contains(document.activeElement)*/) {
 			removeReferencePath(blockList);
 			blockList = addReferencePath(textareaLiveList.item(0));	
 		}
 
-		// common case: there is no textarea and the focus IS NOT in a code block
+		else if (textareaLiveList.length === 0) {
+			if (document.activeElement != null && document.activeElement.className.includes('cm-content') && target.contains(document.activeElement)) {
 
-		else if (textareaLiveList.length === 0 && (document.activeElement != null && !document.activeElement.className.includes('cm-content'))) {
-			removeReferencePath(blockList);
-			blockList = [];
-		}	
-			
-		// edge case: there is no textarea and the focus IS in a code block
+				// edge case: there is no textarea and the focus IS in a code block that is a child of target
 
-		else if (textareaLiveList.length === 0 && (document.activeElement != null && document.activeElement.className.includes('cm-content'))) {
-			let closestBlock = document.activeElement.closest('div.rm-block-main');
-			let referencePathAlreadyAdded = closestBlock.className.includes(internals.extensionId);
-			
-			if (!referencePathAlreadyAdded) {
-				removeReferencePath(blockList);
-				blockList = addReferencePath(document.activeElement);
+				let closestBlock = document.activeElement.closest('div.rm-block-main');
+				let referencePathAlreadyAdded = closestBlock.className.includes(internals.extensionId);
+				// console.log('referencePathAlreadyAdded', referencePathAlreadyAdded, Date.now())
+				if (!referencePathAlreadyAdded) {
+					removeReferencePath(blockList);
+					blockList = addReferencePath(document.activeElement);
+				}
 			}
-			else { console.log('reference path already exists @ ', Date.now()) }
+			else {
+
+				// common case: there is no textarea and the focus IS NOT in a code block
+
+				removeReferencePath(blockList);
+				blockList = [];				
+			}
 		}
-
-		
-		// optional feature to be added in the future: show reference on hover
-
-		// if (internals.settingsCached.showOnHover) {
-		//
-		// 	// we prefer to use div.roam-block instead of rm-block-main to make the hover effect a bit less
-		// 	// intrusive; the logic for the reference path (when hovering) is not affected by this;
-		//
-		// 	let array = Array.from(target.querySelectorAll('div.roam-block:not([data-has-mouse-listeners])'));
-		// 	// let array = Array.from(target.querySelectorAll('div.rm-block-main:not([data-has-mouse-listeners])'));
-		// 	console.log({ 'array.length': array.length })
-		//
-		// 	for (let idx = 0; idx < array.length; idx++) {
-		// 		let el = array[idx];
-		//
-		// 		el.addEventListener('mouseenter', onMouseEnter);
-		// 		el.addEventListener('mouseleave', onMouseLeave);
-		// 		el.dataset.hasMouseListeners = 'true';
-		// 	}
-		// }
 	};
 
-	// observerOptions: https://developer.mozilla.org/en-US/docs/Web/API/MutationObserver/observe#parameters
-	// characterData is useful to observe changes in code editor blocks (in particular, when syntax highlighting is set to "plain text")
+	// for the temporary observers we want to monitor the target element and the entire subtree 
+	// of elements rooted at target; more details:
+	// https://developer.mozilla.org/en-US/docs/Web/API/MutationObserver/observe#parameters
+
+	// we also use the characterData option to observe changes in code editor blocks 
+	// (useful in particular when syntax highlighting is set to "plain text")
 
 	let options = {
 		subtree: true,
@@ -562,16 +525,14 @@ function startTemporaryObserver ({ target }) {
 			handler: () => { 
 
 				log('cleaner for temporary observer', { observerId });
-				debugger;
+
 				observer.disconnect();
-				delete target.dataset.observerId; // use .removeAttribute('data-observer-id') instead?
+				delete target.dataset.observerId;
 				removeReferencePath(blockList);
 				blockList = [];
-				// isEditMode = false;  // to be added in the future
 			} 
 		});		
 	}
-
 }
 
 function removeReferencePath(_blockList) {
@@ -770,7 +731,6 @@ function addReferencePath(el) {
 
 		blockPrevious = blockEl;
 		el = blockContainerEl.parentElement;
-
 	}
 
 	return blockList;
@@ -783,8 +743,7 @@ function startPermanentObserver({ target }) {
 	if (target.matches('div.roam-main')) {
 		callback = function observerCallbackForMainView (mutationList) {
 
-			mutationList.forEach(mutation => {
-
+			for (let mutation of mutationList) {
 				// a page is opened/closed when this element is added/removed: target > div.roam-body-main > div.rm-article-wrapper
 
 				let pageWasOpened = true
@@ -802,17 +761,15 @@ function startPermanentObserver({ target }) {
 					&& mutation.removedNodes[0].children[0].matches('div.roam-body-main > div.rm-article-wrapper');
 
 				if (pageWasClosed) {
-					// stopObserver({ observerId: mutation.removedNodes[0].children[0].dataset.observerId });
 					stopObserver({ target: mutation.removedNodes[0].children[0] });
-				}
-			});
+				}				
+			}
 		}
 	}
 	else if (target.matches('div#right-sidebar')) {
 		callback = function observerCallbackForSidebar (mutationList) {
 
-			mutationList.forEach(mutation => {
-
+			for (let mutation of mutationList) {
 				// the sidebar is opened/closed when this element is added/removed: target > div#roam-right-sidebar-content
 
 				let sidebarWasOpened = true
@@ -828,14 +785,13 @@ function startPermanentObserver({ target }) {
 					&& mutation.removedNodes[0].matches('div#roam-right-sidebar-content');
 
 				if (sidebarWasClosed) {
-					stopObserver({ observerId: mutation.removedNodes[0] });
-				}
-
-			});
+					stopObserver({ target: mutation.removedNodes[0] });
+				}				
+			}
 		}
 	}
 
-	// for the permanent observers we want to only monitor the target element!
+	// for the permanent observers we want to monitor only the target element
 
 	let options = {
 		subtree: false,
@@ -850,7 +806,7 @@ function startPermanentObserver({ target }) {
 			handler: () => { 
 
 				log('cleaner for permanent observer', { observerId });
-				debugger;
+
 				observer.disconnect(); 
 				delete target.dataset.observerId;
 			}
@@ -888,11 +844,10 @@ function stopObserver({ target }) {
 		}
 
 		internals.cleaners = [];
-		return;
 	}
 	else {
 		if (target == null) { return; }
-		debugger;
+
 		let idx = internals.cleaners.findIndex(o => o.observerId === target.dataset.observerId);
 
 		if (idx === -1) { return }
@@ -900,7 +855,6 @@ function stopObserver({ target }) {
 		internals.cleaners[idx].handler();
 		internals.cleaners.splice(idx, 1);		
 	}
-
 }
 
 export default {
