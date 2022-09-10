@@ -211,7 +211,7 @@ function initializeSettings() {
 		description: 'Use a value different from auto only if the line seems out of place vertically. Recommended values are between 9.5px and 10.5px (depends on the line width).',
 		action: {
 			type: 'select',
-			items: ['auto', '7.5px', '8px', '8.5px', '9px', '9.5px', '10px', '10.5px', '11px', '11.5px'],
+			items: ['auto', '6.5px', '7.0px', '7.5px', '8px', '8.5px', '9px', '9.5px', '10px', '10.5px', '11px', '11.5px', '12.0px', '12.5px'],
 			onChange: value => { updateSettingsCached({ key: 'lineTopOffset', value }) },
 		},
 	});
@@ -222,7 +222,7 @@ function initializeSettings() {
 		description: 'Use a value different from auto only if the line seems out of place horizontally. Recommended values are between 5px and 6px (depends on the line width).',
 		action: {
 			type: 'select',
-			items: ['auto', '4px', '4.5px', '5px', '5.5px', '6px', '6.5px', '7px', '7.5px', '8px'],
+			items: ['auto', '3.5px', '4px', '4.5px', '5px', '5.5px', '6px', '6.5px', '7px', '7.5px', '8px', '8.5px'],
 			onChange: value => { updateSettingsCached({ key: 'lineLeftOffset', value }) },
 		},
 	});
@@ -263,7 +263,7 @@ function updateSettingsCached({ key, value, resetStyle: _resetStyle }) {
 	internals.settingsCached.lineColorHex = getColorHex({ shade: lineColorShade });
 	internals.settingsCached.referenceFontWeightValue = getFontWeightValue({ fontWeightDescription: referenceFontWeightDescription });
 	
-	// styles are reseted here, unless we explicitly say otherise
+	// styles are reseted here, unless we explicitly turn it off
 
 	if (_resetStyle !== false) {
 		resetStyle();
