@@ -56,7 +56,9 @@ internals.settingsDefault = {
 	// showOnHover: false  // to be added in the future
 };
 
-internals.roamStudioIsLoaded = false;
+internals.installedExtensions = {
+	roamStudio: false,  // https://github.com/rcvd/RoamStudio
+}
 
 function onload({ extensionAPI }) {
 
@@ -251,9 +253,9 @@ function initializeSettings() {
 		updateSettingsCached({ key, value, resetStyle: false });
 	}
 
-	// check if roam studio is loaded (https://github.com/rcvd/RoamStudio); if so we need to make a few tweaks
+	// detect if other extensions are loaded; if so we might need to make a few tweaks;
 
-	internals.roamStudioIsLoaded = (document.querySelectorAll('style[id^="roamstudio"]').length > 0);
+	internals.installedExtensions.roamStudio = (document.querySelectorAll('style[id^="roamstudio"]').length > 0);
 }
 
 function updateSettingsCached({ key, value, resetStyle: _resetStyle }) {
@@ -579,7 +581,7 @@ function getLineTopOffsetAuto(lineWidth) {
 	lineWidth = parseFloat(lineWidth);
 	let lineTopOffset = '';
 
-	if (internals.roamStudioIsLoaded) {
+	if (internals.installedExtensions.roamStudio) {
 		if (lineWidth === 1) {
 			lineTopOffset = '7.0px';
 		}
