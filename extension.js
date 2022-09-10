@@ -56,6 +56,8 @@ internals.settingsDefault = {
 	// showOnHover: false  // to be added in the future
 };
 
+internals.roamStudioIsLoaded = false;
+
 function onload({ extensionAPI }) {
 
 	log('ONLOAD (start)');
@@ -248,6 +250,10 @@ function initializeSettings() {
 		
 		updateSettingsCached({ key, value, resetStyle: false });
 	}
+
+	// check if roam studio is loaded (https://github.com/rcvd/RoamStudio); if so we need to make a few tweaks
+
+	internals.roamStudioIsLoaded = (document.querySelectorAll('style[id^="roamstudio"]').length > 0);
 }
 
 function updateSettingsCached({ key, value, resetStyle: _resetStyle }) {
@@ -568,25 +574,38 @@ function removeReferencePath(_blockList) {
 	}
 }
 
-function getLineTopOffset(lineWidth) {
+function getLineTopOffsetAuto(lineWidth) {
 
 	lineWidth = parseFloat(lineWidth);
 	let lineTopOffset = '';
 
-	if (lineWidth === 1) {
-		lineTopOffset = '9.5px';
+	if (internals.roamStudioIsLoaded) {
+		if (lineWidth === 1) {
+			lineTopOffset = '7.0px';
+		}
+		else if (lineWidth === 2) {
+			lineTopOffset = '7.5px';
+		}
+		else if (lineWidth === 3) {
+			lineTopOffset = '8.0px';
+		}		
 	}
-	else if (lineWidth === 2) {
-		lineTopOffset = '10px';
-	}
-	else if (lineWidth === 3) {
-		lineTopOffset = '10.5px';
+	else {
+		if (lineWidth === 1) {
+			lineTopOffset = '9.5px';
+		}
+		else if (lineWidth === 2) {
+			lineTopOffset = '10px';
+		}
+		else if (lineWidth === 3) {
+			lineTopOffset = '10.5px';
+		}		
 	}
 
 	return lineTopOffset;
 }
 
-function getLineLeftOffset(lineWidth, bulletScaleFactor) {
+function getLineLeftOffsetAuto(lineWidth, bulletScaleFactor) {
 
 	lineWidth = parseFloat(lineWidth);
 	let lineLeftOffset = '';
@@ -619,11 +638,11 @@ function addReferencePath(el) {
 
 	if (lineColorHex !== 'disabled') {
 		if (lineTopOffset === 'auto') {
-			lineTopOffset = getLineTopOffset(lineWidth);
+			lineTopOffset = getLineTopOffsetAuto(lineWidth);
 		}
 
 		if (lineLeftOffset === 'auto') {
-			lineLeftOffset = getLineLeftOffset(lineWidth);
+			lineLeftOffset = getLineLeftOffsetAuto(lineWidth);
 		}
 	}
 
