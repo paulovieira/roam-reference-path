@@ -26,9 +26,9 @@ internals.settingsCached = {
 	lineWidth: null,
 	lineStyle: null,
 	lineRoundness: null,
+	showOnHover: null,
 	lineTopOffset: null,
 	lineLeftOffset: null,
-	// showOnHover: null,  // to be added in the future
 
 	// derived settings
 
@@ -51,9 +51,9 @@ internals.settingsDefault = {
 	lineWidth: '1px',
 	lineStyle: 'solid',
 	lineRoundness: '2px',
+	showOnHover: false,
 	lineTopOffset: 'auto',
 	lineLeftOffset: 'auto',
-	// showOnHover: false  // to be added in the future
 };
 
 internals.installedExtensions = {
@@ -206,6 +206,16 @@ function initializeSettings() {
 			type: 'select',
 			items: ['0px', '1px', '2px', '3px', '4px', '5px', '6px', '7px', '8px', '9px'],
 			onChange: value => { updateSettingsCached({ key: 'lineRoundness', value }) },
+		},
+	});
+
+	panelConfig.settings.push({
+		id: 'showOnHover',
+		name: 'Hover mode',
+		description: 'Show reference path on hover (when there is no block being edited).',
+		action: {
+			type: 'switch',
+			onChange: ev => { updateSettingsCached({ key: 'showOnHover', value: ev.target.checked }) },
 		},
 	});
 
@@ -447,6 +457,56 @@ function startTemporaryObserver ({ target }) {
 
 	let textareaLiveList = target.getElementsByTagName('textarea');
 
+	let isEditing = false;
+
+	let onMouseEnter = function onMouseEnter (ev) {
+		// console.log('onMouseEnter @ ' + Date.now())
+		if (isEditing || !internals.settingsCached.showOnHover) { return }
+
+		removeReferencePath(blockList);
+		blockList = addReferencePath(ev.target);
+	}
+
+	let onMouseLeave = function onMouseLeave (ev) {
+		// console.log('onMouseLeave @ ' + Date.now())
+		if (isEditing || !internals.settingsCached.showOnHover) { return }
+
+		removeReferencePath(blockList);
+		blockList = [];
+	}
+
+	let addHoverListeners = function addHoverListeners (ev) {
+
+		// get blocks without hover listeners and add our listeners to them
+
+		let array = Array.from(target.querySelectorAll(`div.roam-block:not([data-reference-path-has-hover-listeners])`));
+
+		for (let idx = 0; idx < array.length; idx++) {
+			let el = array[idx];
+
+			el.addEventListener('mouseenter', onMouseEnter);
+			el.addEventListener('mouseleave', onMouseLeave);
+			el.dataset.referencePathHasHoverListeners = 'true';
+		}
+	}
+
+	let removeHoverListeners = function removeHoverListeners (ev) {
+
+		// get blocks with hover listeners and remove our listeners from them
+
+		let array = Array.from(target.querySelectorAll(`div.roam-block[data-reference-path-has-hover-listeners]`));
+
+		for (let idx = 0; idx < array.length; idx++) {
+			let el = array[idx];
+
+			el.removeEventListener('mouseenter', onMouseEnter);
+			el.removeEventListener('mouseleave', onMouseLeave);
+			delete el.dataset.referencePathHasHoverListeners;
+
+			// the delete statement above might not work in safari <= 10 (https://stackoverflow.com/a/9201264/4174108)
+		}
+	}
+
 	// reference: https://developer.mozilla.org/en-US/docs/Web/API/MutationObserver/MutationObserver
 
 	let callback = function observerCallbackForTextarea (mutationList) {
@@ -455,7 +515,7 @@ function startTemporaryObserver ({ target }) {
 
 		let mutationCount = mutationList.length;
 		let isProbablyTyping = (mutationCount === 1);
-		
+
 		if (isProbablyTyping) {
 
 			let mutation0 = mutationList[0];
@@ -476,7 +536,10 @@ function startTemporaryObserver ({ target }) {
 
 		// return early 2: are there any other special cases to consider?
 
-		internals.isDev && log('observerCallback', { mutationList });
+		if (internals.isDev) {
+			log('observerCallback', { mutationList });
+		}
+
 
 		// is there any situation where we 2 or more textareas?
 
@@ -487,8 +550,8 @@ function startTemporaryObserver ({ target }) {
 		if (textareaLiveList.length > 0 /*&& textareaLiveList.item(0).contains(document.activeElement)*/) {
 			removeReferencePath(blockList);
 			blockList = addReferencePath(textareaLiveList.item(0));	
+			isEditing = true;
 		}
-
 		else if (textareaLiveList.length === 0) {
 			if (document.activeElement != null && document.activeElement.className.includes('cm-content') && target.contains(document.activeElement)) {
 
@@ -501,15 +564,23 @@ function startTemporaryObserver ({ target }) {
 					removeReferencePath(blockList);
 					blockList = addReferencePath(document.activeElement);
 				}
+
+				isEditing = true;
 			}
 			else {
 
 				// common case: there is no textarea and the focus IS NOT in a code block
 
 				removeReferencePath(blockList);
-				blockList = [];				
+				blockList = [];
+				isEditing = false;
 			}
 		}
+
+		if (internals.settingsCached.showOnHover) {
+			addHoverListeners(target);
+		}
+
 	};
 
 	// for the temporary observers we want to monitor the target element and the entire subtree 
@@ -538,8 +609,18 @@ function startTemporaryObserver ({ target }) {
 				delete target.dataset.observerId;
 				removeReferencePath(blockList);
 				blockList = [];
+				removeHoverListeners(target);
 			} 
-		});		
+		});
+
+		// note that addHoverListeners is also called in the observer callback; there is no problem 
+		// in having it here also because it won't add listeners for elements that already have them;
+		// in fact this call is necessary here because the callback is not always called immediatelly 
+		// after we start the observer, and we need to add the hover listeners at this point;
+
+		if (internals.settingsCached.showOnHover) {
+			addHoverListeners(target);
+		}
 	}
 }
 
