@@ -60,6 +60,8 @@ internals.installedExtensions = {
 	roamStudio: false,  // https://github.com/rcvd/RoamStudio
 }
 
+internals.serial = 0;
+
 function onload({ extensionAPI }) {
 
 	log('ONLOAD (start)');
@@ -927,8 +929,8 @@ function startObserver({ target, callback, options }) {
 	let observer = new MutationObserver(callback);
 	observer.observe(target, options);
 
-	let observerId = window.crypto.randomUUID();
-	
+	let observerId = String(internals.serial++);
+
 	target.dataset.observerId = observerId;
 
 	out = { observer, observerId }
