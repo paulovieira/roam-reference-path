@@ -88,7 +88,7 @@ internals.onMouseEnter = {
 	mainView: function onMouseEnterMainView (ev) {
 		// console.log('onMouseEnter (mainView) @ ' + Date.now());
 
-		if (!internals.settingsCached.showOnHover || internals.isEditing.mainView) { return }
+		if (internals.isEditing.mainView) { return }
 
 		removeReferencePath(internals.blockList.mainView);
 		addReferencePath(internals.blockList.mainView, ev.target);
@@ -96,7 +96,7 @@ internals.onMouseEnter = {
 	sidebar: function onMouseEnterSidebar (ev) {
 		// console.log('onMouseEnter (sidebar) @ ' + Date.now());
 
-		if (!internals.settingsCached.showOnHover || internals.isEditing.sidebar) { return }
+		if (internals.isEditing.sidebar) { return }
 
 		removeReferencePath(internals.blockList.sidebar);
 		addReferencePath(internals.blockList.sidebar, ev.target);
@@ -107,14 +107,14 @@ internals.onMouseLeave = {
 	mainView: function onMouseLeaveMainView (ev) {
 		// console.log('onMouseLeave (mainView) @ ' + Date.now());
 
-		if (!internals.settingsCached.showOnHover || internals.isEditing.mainView) { return }
+		if (internals.isEditing.mainView) { return }
 
 		removeReferencePath(internals.blockList.mainView);
 	},
 	sidebar: function onMouseLeaveSidebar (ev) {
 		// console.log('onMouseLeave (sidebar) @ ' + Date.now());
 
-		if (!internals.settingsCached.showOnHover || internals.isEditing.sidebar) { return }
+		if (internals.isEditing.sidebar) { return }
 
 		removeReferencePath(internals.blockList.sidebar);
 	},
@@ -681,10 +681,10 @@ function startTemporaryObserver ({ target }) {
 		} 
 	});
 
-	// note that addMouseHoverListeners is also called in the temporary observer callback; there is no problem 
-	// in having it here also because it will only add listeners for block that don't have them already;
-	// we need to call it here to initialize the hover behaviours (as the temporary callback is not always 
-	// called immediatelly after we start the observer);
+	// initialize the hover behaviours; note that addMouseHoverListeners is also called in the temporary 
+	// observer callback, but it's ok to also have it here because it will only add listeners for blocks that 
+	// don't have them already; in fact we need to initialize it here because the temporary callback is not always called immediatelly 
+	// after the observer is started
 
 	if (internals.settingsCached.showOnHover) {
 		addMouseHoverListeners(target);
