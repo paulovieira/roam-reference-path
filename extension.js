@@ -58,9 +58,67 @@ internals.settingsDefault = {
 
 internals.installedExtensions = {
 	roamStudio: false,  // https://github.com/rcvd/RoamStudio
-}
+};
 
-internals.serial = 0;
+internals.serialId = 0;
+
+internals.selector = {};
+
+internals.selector.permanent = {
+	mainView: 'div.roam-main',
+	sidebar: 'div#right-sidebar'	
+};
+
+internals.selector.temporary = {
+	mainView: 'div.rm-article-wrapper',
+	sidebar: 'div#roam-right-sidebar-content'
+};
+
+internals.blockList = {
+	mainView: [],
+	sidebar: [],
+};
+
+internals.isEditing = {
+	mainView: false,
+	sidebar: false,
+};
+
+internals.onMouseEnter = {
+	mainView: function onMouseEnterMainView (ev) {
+		// console.log('onMouseEnter (mainView) @ ' + Date.now());
+
+		if (!internals.settingsCached.showOnHover || internals.isEditing.mainView) { return }
+
+		removeReferencePath(internals.blockList.mainView);
+		addReferencePath(internals.blockList.mainView, ev.target);
+	},
+	sidebar: function onMouseEnterSidebar (ev) {
+		// console.log('onMouseEnter (sidebar) @ ' + Date.now());
+
+		if (!internals.settingsCached.showOnHover || internals.isEditing.sidebar) { return }
+
+		removeReferencePath(internals.blockList.sidebar);
+		addReferencePath(internals.blockList.sidebar, ev.target);
+	},
+};
+
+internals.onMouseLeave = {
+	mainView: function onMouseLeaveMainView (ev) {
+		// console.log('onMouseLeave (mainView) @ ' + Date.now());
+
+		if (!internals.settingsCached.showOnHover || internals.isEditing.mainView) { return }
+
+		removeReferencePath(internals.blockList.mainView);
+	},
+	sidebar: function onMouseLeaveSidebar (ev) {
+		// console.log('onMouseLeave (sidebar) @ ' + Date.now());
+
+		if (!internals.settingsCached.showOnHover || internals.isEditing.sidebar) { return }
+
+		removeReferencePath(internals.blockList.sidebar);
+	},
+};
 
 function onload({ extensionAPI }) {
 
@@ -71,11 +129,8 @@ function onload({ extensionAPI }) {
 	initializeSettings();
 	resetStyle();
 
-	startPermanentObserver({ target: document.querySelector('div.roam-main') });
-	startPermanentObserver({ target: document.querySelector('div#right-sidebar') });
-
-	startTemporaryObserver({ target: document.querySelector('div.rm-article-wrapper') });
-	startTemporaryObserver({ target: document.querySelector('div#roam-right-sidebar-content') });
+	startPermanentObserver({ target: document.querySelector(internals.selector.permanent.mainView) });
+	startPermanentObserver({ target: document.querySelector(internals.selector.permanent.sidebar) });
 
 	log('ONLOAD (end)');
 }
@@ -289,6 +344,17 @@ function updateSettingsCached({ key, value, resetStyle: _resetStyle }) {
 		resetStyle();
 	}
 
+	if (key === 'showOnHover')  {
+		if (value === true) {
+			addMouseHoverListeners(document.querySelector(internals.selector.temporary.mainView));
+			addMouseHoverListeners(document.querySelector(internals.selector.temporary.sidebar));
+		}
+		else {
+			removeMouseHoverListeners(document.querySelector(internals.selector.temporary.mainView));
+			removeMouseHoverListeners(document.querySelector(internals.selector.temporary.sidebar));
+		}
+	}
+
 	log('updateSettingsCached', { key, value, 'internals.settingsCached': internals.settingsCached });
 }
 
@@ -338,20 +404,6 @@ function resetStyle() {
 	setTimeout(addStyle, internals.isDev ? 200 : 100);
 }
 
-function removeStyle() {
-
-	log('removeStyle');
-
-	// we assume no one else has added a <style data-extension-id="reference-path-28373625"> before, which seems
-	// to be a strong hypothesis
-
-	let extensionStyles = Array.from(document.head.querySelectorAll(`style[data-extension-id^="${internals.extensionId}"]`));
-
-	for (let styleEl of extensionStyles) {
-		styleEl.remove()	
-	}
-}
-
 function addStyle() {
 
 	log('addStyle');
@@ -361,8 +413,8 @@ function addStyle() {
 
 	if (internals.settingsCached.bulletColorHex !== 'disabled') {
 		textContent += `
-			.${extensionId} > div.controls span.rm-bullet__inner,
-			.${extensionId} > div.controls span.rm-bullet__inner--user-icon {
+			[data-reference-path-has-style] > div.controls span.rm-bullet__inner,
+			[data-reference-path-has-style] > div.controls span.rm-bullet__inner--user-icon {
 				background-color: var(--${extensionId}-bullet-color);
 			}
 		`;
@@ -370,8 +422,8 @@ function addStyle() {
 
 	if (internals.settingsCached.bulletScaleFactor !== 'disabled') {
 		textContent += `
-			.${extensionId} > div.controls span.rm-bullet__inner,
-			.${extensionId} > div.controls span.rm-bullet__inner--user-icon {
+			[data-reference-path-has-style] > div.controls span.rm-bullet__inner,
+			[data-reference-path-has-style] > div.controls span.rm-bullet__inner--user-icon {
 				transform: scale(var(--${extensionId}-bullet-scale-factor));
 			}
 		`;
@@ -379,15 +431,15 @@ function addStyle() {
 
 	if (internals.settingsCached.referenceColorHex !== 'disabled') {
 		textContent += `
-			.${extensionId} > div.rm-block-text span.rm-page-ref__brackets {
+			[data-reference-path-has-style] > div.rm-block-text span.rm-page-ref__brackets {
 				color: var(--${extensionId}-brackets-color);
 			}
 
-			.${extensionId} > div.rm-block-text span.rm-page-ref--link {
+			[data-reference-path-has-style] > div.rm-block-text span.rm-page-ref--link {
 				color: var(--${extensionId}-link-color);
 			}
 
-			.${extensionId} > div.rm-block-text span.rm-page-ref--tag {
+			[data-reference-path-has-style] > div.rm-block-text span.rm-page-ref--tag {
 				color: var(--${extensionId}-link-color);
 			}
 		`;
@@ -395,15 +447,15 @@ function addStyle() {
 
 	if (internals.settingsCached.referenceFontWeightValue !== 'disabled') {
 		textContent += `
-			.${extensionId} > div.rm-block-text span.rm-page-ref__brackets {
+			[data-reference-path-has-style] > div.rm-block-text span.rm-page-ref__brackets {
 				font-weight:  var(--${extensionId}-brackets-weight);
 			}
 
-			.${extensionId} > div.rm-block-text span.rm-page-ref--link {
+			[data-reference-path-has-style] > div.rm-block-text span.rm-page-ref--link {
 				font-weight:  var(--${extensionId}-link-weight);
 			}
 
-			.${extensionId} > div.rm-block-text span.rm-page-ref--tag {
+			[data-reference-path-has-style] > div.rm-block-text span.rm-page-ref--tag {
 				font-weight:  var(--${extensionId}-link-weight);
 			}
 		`;
@@ -411,7 +463,7 @@ function addStyle() {
 
 	if (internals.settingsCached.lineColorHex !== 'disabled') {
 		textContent += `
-			.${extensionId} > div.controls span.bp3-popover-target::before {
+			[data-reference-path-has-style] > div.controls span.bp3-popover-target::before {
 				border-color: var(--${extensionId}-line-color);
 				border-width: var(--${extensionId}-line-width);
 				border-style: var(--${extensionId}-line-style);
@@ -439,18 +491,84 @@ function addStyle() {
 	document.head.appendChild(extensionStyle);
 }
 
+function removeStyle() {
+
+	log('removeStyle');
+
+	// we assume no one else has added a <style data-extension-id="reference-path-28373625"> before, which seems
+	// to be a strong hypothesis
+
+	let extensionStyles = Array.from(document.head.querySelectorAll(`style[data-extension-id^="${internals.extensionId}"]`));
+
+	for (let styleEl of extensionStyles) {
+		styleEl.remove()	
+	}
+}
+
+function addMouseHoverListeners (target) {
+
+	if (target == null) { return; }
+
+	// get blocks that don't already have hover listeners
+
+	let blocksWithoutListeners = Array.from(target.querySelectorAll(`div.roam-block:not([data-reference-path-has-hover])`));
+	// console.log({ 'blocksWithoutListeners.length': blocksWithoutListeners.length })
+
+	if (blocksWithoutListeners.length === 0) { return }
+
+	let targetKey = getTargetKey({ target });
+	let onMouseEnter = internals.onMouseEnter[targetKey];
+	let onMouseLeave = internals.onMouseLeave[targetKey];
+	
+	for (let idx = 0; idx < blocksWithoutListeners.length; idx++) {
+		let el = blocksWithoutListeners[idx];
+
+		el.addEventListener('mouseenter', onMouseEnter);
+		el.addEventListener('mouseleave', onMouseLeave);
+		el.dataset.referencePathHasHover = 'true';
+	}
+}
+
+function removeMouseHoverListeners (target) {
+
+	if (target == null) { return; }
+
+	// get blocks that have hover listeners
+
+	let blocksWithListeners = Array.from(target.querySelectorAll(`div.roam-block[data-reference-path-has-hover]`));
+	// console.log({ 'blocksWithListeners.length': blocksWithListeners.length })
+
+	if (blocksWithListeners.length === 0) { return }
+
+	let targetKey = getTargetKey({ target });
+	let onMouseEnter = internals.onMouseEnter[targetKey];
+	let onMouseLeave = internals.onMouseLeave[targetKey];
+
+	for (let idx = 0; idx < blocksWithListeners.length; idx++) {
+		let el = blocksWithListeners[idx];
+
+		el.removeEventListener('mouseenter', onMouseEnter);
+		el.removeEventListener('mouseleave', onMouseLeave);
+		delete el.dataset.referencePathHasHover;  // might not work in safari <= 10?
+	}
+}
+
 function startTemporaryObserver ({ target }) {
 
-	if (target == null) { return }
+	// if (target == null) { return }
+
+	if (target.dataset.referencePathObserverId != null) { return }
 
 	log('main');
 
-	// private array to store a list of div.rm-block-main (the elements where we will add
-	// our custom css properties)
+	let targetKey = getTargetKey({ target });
 
-	let blockList = [];  
+	// array to store a list of div.rm-block-main (where we will add our custom css properties);
+	// we will mutate this array in addReferencePath / removeReferencePath
 
-	// there is some evidence that getElementsByTagName is faster than querySelector
+	let blockList = internals.blockList[targetKey];
+
+	// some evidence that getElementsByTagName is faster than querySelector:
 	// https://humanwhocodes.com/blog/2010/09/28/why-is-getelementsbytagname-faster-that-queryselectorall/
 	// https://gomakethings.com/javascript-selector-performance/
 
@@ -459,59 +577,13 @@ function startTemporaryObserver ({ target }) {
 
 	let textareaLiveList = target.getElementsByTagName('textarea');
 
-	let isEditing = false;
+	// TODO: comment
 
-	let onMouseEnter = function onMouseEnter (ev) {
-		// console.log('onMouseEnter @ ' + Date.now())
-		if (isEditing || !internals.settingsCached.showOnHover) { return }
-
-		removeReferencePath(blockList);
-		blockList = addReferencePath(ev.target);
-	}
-
-	let onMouseLeave = function onMouseLeave (ev) {
-		// console.log('onMouseLeave @ ' + Date.now())
-		if (isEditing || !internals.settingsCached.showOnHover) { return }
-
-		removeReferencePath(blockList);
-		blockList = [];
-	}
-
-	let addHoverListeners = function addHoverListeners (ev) {
-
-		// get blocks without hover listeners and add our listeners to them
-
-		let array = Array.from(target.querySelectorAll(`div.roam-block:not([data-reference-path-has-hover-listeners])`));
-
-		for (let idx = 0; idx < array.length; idx++) {
-			let el = array[idx];
-
-			el.addEventListener('mouseenter', onMouseEnter);
-			el.addEventListener('mouseleave', onMouseLeave);
-			el.dataset.referencePathHasHoverListeners = 'true';
-		}
-	}
-
-	let removeHoverListeners = function removeHoverListeners (ev) {
-
-		// get blocks with hover listeners and remove our listeners from them
-
-		let array = Array.from(target.querySelectorAll(`div.roam-block[data-reference-path-has-hover-listeners]`));
-
-		for (let idx = 0; idx < array.length; idx++) {
-			let el = array[idx];
-
-			el.removeEventListener('mouseenter', onMouseEnter);
-			el.removeEventListener('mouseleave', onMouseLeave);
-			delete el.dataset.referencePathHasHoverListeners;
-
-			// the delete statement above might not work in safari <= 10 (https://stackoverflow.com/a/9201264/4174108)
-		}
-	}
+	internals.isEditing[targetKey] = false;
 
 	// reference: https://developer.mozilla.org/en-US/docs/Web/API/MutationObserver/MutationObserver
 
-	let callback = function observerCallbackForTextarea (mutationList) {
+	let temporaryObserverCallback = function temporaryObserverCallback (mutationList) {
 
 		// return early 1: typing in the active block (in edit mode)
 
@@ -551,8 +623,8 @@ function startTemporaryObserver ({ target }) {
 		
 		if (textareaLiveList.length > 0 /*&& textareaLiveList.item(0).contains(document.activeElement)*/) {
 			removeReferencePath(blockList);
-			blockList = addReferencePath(textareaLiveList.item(0));	
-			isEditing = true;
+			addReferencePath(blockList, textareaLiveList.item(0));	
+			internals.isEditing[targetKey] = true;
 		}
 		else if (textareaLiveList.length === 0) {
 			if (document.activeElement != null && document.activeElement.className.includes('cm-content') && target.contains(document.activeElement)) {
@@ -560,37 +632,33 @@ function startTemporaryObserver ({ target }) {
 				// edge case: there is no textarea and the focus IS in a code block that is a child of target
 
 				let closestBlock = document.activeElement.closest('div.rm-block-main');
-				let referencePathAlreadyAdded = closestBlock.className.includes(internals.extensionId);
-				// console.log('referencePathAlreadyAdded', referencePathAlreadyAdded, Date.now())
-				if (!referencePathAlreadyAdded) {
-					removeReferencePath(blockList);
-					blockList = addReferencePath(document.activeElement);
-				}
 
-				isEditing = true;
+				if (closestBlock.dataset.referencePathHasStyle == null) {
+					removeReferencePath(blockList);
+					addReferencePath(blockList, document.activeElement);
+				}
+				// else { debugger }
+
+				internals.isEditing[targetKey] = true;
 			}
 			else {
 
 				// common case: there is no textarea and the focus IS NOT in a code block
 
 				removeReferencePath(blockList);
-				blockList = [];
-				isEditing = false;
+				internals.isEditing[targetKey] = false;
 			}
 		}
 
 		if (internals.settingsCached.showOnHover) {
-			addHoverListeners(target);
+			addMouseHoverListeners(target);
 		}
-
 	};
 
 	// for the temporary observers we want to monitor the target element and the entire subtree 
-	// of elements rooted at target; more details:
-	// https://developer.mozilla.org/en-US/docs/Web/API/MutationObserver/observe#parameters
-
-	// we also use the characterData option to observe changes in code editor blocks 
-	// (useful in particular when syntax highlighting is set to "plain text")
+	// of elements rooted at target; we also use the characterData option to observe changes in 
+	// code editor blocks (useful in particular when syntax highlighting is set to "plain text")
+	// reference: https://developer.mozilla.org/en-US/docs/Web/API/MutationObserver/observe#parameters
 
 	let options = {
 		subtree: true,
@@ -598,120 +666,36 @@ function startTemporaryObserver ({ target }) {
 		characterData: true, 
 	}
 
-	let { observer, observerId } = startObserver({ target, callback, options });
-	
-	if (observer != null) {
-		internals.cleaners.push({ 
-			observerId,
-			handler: () => { 
+	let { observer, observerId } = startObserver({ target, callback: temporaryObserverCallback, options });
 
-				log('cleaner for temporary observer', { observerId });
+	internals.cleaners.push({ 
+		observerId,
+		handler: () => { 
 
-				observer.disconnect();
-				delete target.dataset.observerId;
-				removeReferencePath(blockList);
-				blockList = [];
-				removeHoverListeners(target);
-			} 
-		});
+			log('cleaner for temporary observer', { observerId });
 
-		// note that addHoverListeners is also called in the observer callback; there is no problem 
-		// in having it here also because it won't add listeners for elements that already have them;
-		// in fact this call is necessary here because the callback is not always called immediatelly 
-		// after we start the observer, and we need to add the hover listeners at this point;
+			observer.disconnect();
+			delete target.dataset.referencePathObserverId;  // might not work in safari <= 10?
+			removeReferencePath(blockList);
+			removeMouseHoverListeners(target);
+		} 
+	});
 
-		if (internals.settingsCached.showOnHover) {
-			addHoverListeners(target);
-		}
+	// note that addMouseHoverListeners is also called in the temporary observer callback; there is no problem 
+	// in having it here also because it will only add listeners for block that don't have them already;
+	// we need to call it here to initialize the hover behaviours (as the temporary callback is not always 
+	// called immediatelly after we start the observer);
+
+	if (internals.settingsCached.showOnHover) {
+		addMouseHoverListeners(target);
 	}
 }
 
-function removeReferencePath(_blockList) {
+function addReferencePath(blockList, el) {
 
-	internals.isDev && log('removeReferencePath');
-
-	if (_blockList.length === 0) { return }
-
-	let { extensionId } = internals;
-
-	for (let idx = 0; idx < _blockList.length; idx++) {
-		let blockEl = _blockList[idx];
-
-		blockEl.style.removeProperty(`--${extensionId}-bullet-scale-factor`);
-		blockEl.style.removeProperty(`--${extensionId}-bullet-color`);
-		
-		blockEl.style.removeProperty(`--${extensionId}-brackets-color`);
-		blockEl.style.removeProperty(`--${extensionId}-brackets-weight`);
-		blockEl.style.removeProperty(`--${extensionId}-link-color`);
-		blockEl.style.removeProperty(`--${extensionId}-link-weight`);
-
-		blockEl.style.removeProperty(`--${extensionId}-line-color`);
-		blockEl.style.removeProperty(`--${extensionId}-line-roundness`);
-		blockEl.style.removeProperty(`--${extensionId}-line-width`);
-		blockEl.style.removeProperty(`--${extensionId}-line-style`);
-		blockEl.style.removeProperty(`--${extensionId}-line-top-offset`);
-		blockEl.style.removeProperty(`--${extensionId}-line-left-offset`);
-
-		blockEl.style.removeProperty(`--${extensionId}-box-width`);
-		blockEl.style.removeProperty(`--${extensionId}-box-height`);
-
-		blockEl.classList.remove(extensionId);
+	if (internals.isDev) {
+		log('addReferencePath', { el });
 	}
-}
-
-function getLineTopOffsetAuto(lineWidth) {
-
-	lineWidth = parseFloat(lineWidth);
-	let lineTopOffset = '';
-
-	if (internals.installedExtensions.roamStudio) {
-		if (lineWidth === 1) {
-			lineTopOffset = '7.0px';
-		}
-		else if (lineWidth === 2) {
-			lineTopOffset = '7.5px';
-		}
-		else if (lineWidth === 3) {
-			lineTopOffset = '8.0px';
-		}		
-	}
-	else {
-		if (lineWidth === 1) {
-			lineTopOffset = '9.5px';
-		}
-		else if (lineWidth === 2) {
-			lineTopOffset = '10px';
-		}
-		else if (lineWidth === 3) {
-			lineTopOffset = '10.5px';
-		}		
-	}
-
-	return lineTopOffset;
-}
-
-function getLineLeftOffsetAuto(lineWidth, bulletScaleFactor) {
-
-	lineWidth = parseFloat(lineWidth);
-	let lineLeftOffset = '';
-
-	if (lineWidth === 1) {
-		lineLeftOffset = '6px';
-	}
-	else if (lineWidth === 2) {
-		lineLeftOffset = '5.5px';
-	}
-	else if (lineWidth === 3) {
-		lineLeftOffset = '5px';
-	}
-
-	return lineLeftOffset;
-
-}
-
-function addReferencePath(el) {
-
-	internals.isDev && log('addReferencePath', { el });
 
 	// removeReferencePath();
 
@@ -719,7 +703,7 @@ function addReferencePath(el) {
 	let { bulletColorHex, bulletScaleFactor } = internals.settingsCached;
 	let { referenceColorHex, referenceFontWeightValue } = internals.settingsCached;
 	let { lineColorHex, lineRoundness, lineWidth, lineStyle, lineTopOffset, lineLeftOffset } = internals.settingsCached;
-	let blockPrevious = null, blockList = [];
+	let blockPrevious = null;
 
 	if (lineColorHex !== 'disabled') {
 		if (lineTopOffset === 'auto') {
@@ -762,8 +746,6 @@ function addReferencePath(el) {
 
 		if (!(blockEl.className.includes('rm-block-main'))) { continue; }
 
-		blockList.push(blockEl);
-		blockEl.classList.add(extensionId);
 
 		// 1 - set css variables for bullets
 
@@ -831,109 +813,221 @@ function addReferencePath(el) {
 			}
 		}
 
+		blockEl.dataset.referencePathHasStyle = 'true';
+		blockList.push(blockEl);
+
 		// go to the parent and repeat
 
 		blockPrevious = blockEl;
 		el = blockContainerEl.parentElement;
 	}
+}
 
-	return blockList;
+function removeReferencePath(blockList) {
+
+	if (internals.isDev) {
+		log('removeReferencePath');
+	}
+
+	if (blockList.length === 0) { return }
+
+	let { extensionId } = internals;
+
+	for (let idx = 0; idx < blockList.length; idx++) {
+		let blockEl = blockList[idx];
+
+		blockEl.style.removeProperty(`--${extensionId}-bullet-scale-factor`);
+		blockEl.style.removeProperty(`--${extensionId}-bullet-color`);
+		
+		blockEl.style.removeProperty(`--${extensionId}-brackets-color`);
+		blockEl.style.removeProperty(`--${extensionId}-brackets-weight`);
+		blockEl.style.removeProperty(`--${extensionId}-link-color`);
+		blockEl.style.removeProperty(`--${extensionId}-link-weight`);
+
+		blockEl.style.removeProperty(`--${extensionId}-line-color`);
+		blockEl.style.removeProperty(`--${extensionId}-line-roundness`);
+		blockEl.style.removeProperty(`--${extensionId}-line-width`);
+		blockEl.style.removeProperty(`--${extensionId}-line-style`);
+		blockEl.style.removeProperty(`--${extensionId}-line-top-offset`);
+		blockEl.style.removeProperty(`--${extensionId}-line-left-offset`);
+
+		blockEl.style.removeProperty(`--${extensionId}-box-width`);
+		blockEl.style.removeProperty(`--${extensionId}-box-height`);
+
+		delete blockEl.dataset.referencePathHasStyle;  // might not work in safari <= 10?
+	}
+
+	// https://stackoverflow.com/questions/1232040/how-do-i-empty-an-array-in-javascript
+	blockList.length = 0;
+}
+
+function getLineTopOffsetAuto(lineWidth) {
+
+	lineWidth = parseFloat(lineWidth);
+	let lineTopOffset = '';
+
+	if (internals.installedExtensions.roamStudio) {
+		if (lineWidth === 1) {
+			lineTopOffset = '7.0px';
+		}
+		else if (lineWidth === 2) {
+			lineTopOffset = '7.5px';
+		}
+		else if (lineWidth === 3) {
+			lineTopOffset = '8.0px';
+		}		
+	}
+	else {
+		if (lineWidth === 1) {
+			lineTopOffset = '9.5px';
+		}
+		else if (lineWidth === 2) {
+			lineTopOffset = '10px';
+		}
+		else if (lineWidth === 3) {
+			lineTopOffset = '10.5px';
+		}		
+	}
+
+	return lineTopOffset;
+}
+
+function getTargetKey({ target }) {
+
+	let targetKey = '';
+
+	if (target.matches(internals.selector.permanent.mainView) || target.matches(internals.selector.temporary.mainView)) {
+		targetKey = 'mainView';
+	}
+	else if (target.matches(internals.selector.permanent.sidebar) || target.matches(internals.selector.temporary.sidebar)) {
+		targetKey = 'sidebar';
+	}
+	else {
+		throw new Error('unexpected target element');	
+	}
+
+	return targetKey;
+}
+
+function getLineLeftOffsetAuto(lineWidth, bulletScaleFactor) {
+
+	lineWidth = parseFloat(lineWidth);
+	let lineLeftOffset = '';
+
+	if (lineWidth === 1) {
+		lineLeftOffset = '6px';
+	}
+	else if (lineWidth === 2) {
+		lineLeftOffset = '5.5px';
+	}
+	else if (lineWidth === 3) {
+		lineLeftOffset = '5px';
+	}
+
+	return lineLeftOffset;
 }
 
 function startPermanentObserver({ target }) {
 
-	let callback;
+	// avoid having repeated observers in the same target (though in theory it should never happen)
 
-	if (target.matches('div.roam-main')) {
-		callback = function observerCallbackForMainView (mutationList) {
+	if (target.dataset.referencePathObserverId != null) { return }
 
-			for (let mutation of mutationList) {
-				// a page is opened/closed when this element is added/removed: target > div.roam-body-main > div.rm-article-wrapper
+	let targetKey = getTargetKey({ target });
 
-				let pageWasOpened = true
+	let permanentObserverCallback = function permanentObserverCallback (mutationList) {
+
+		for (let mutation of mutationList) {
+
+			let wasOpened = false;
+			let wasClosed = false;
+
+			if (targetKey === 'mainView') {
+
+				// a page is opened/closed in the main view when this element is added/removed: target > div.roam-body-main > div.rm-article-wrapper
+
+				wasOpened = true
 					&& mutation.addedNodes.length > 0
 					&& mutation.addedNodes[0].children.length > 0
-					&& mutation.addedNodes[0].children[0].matches('div.roam-body-main > div.rm-article-wrapper');
+					&& mutation.addedNodes[0].children[0].matches(internals.selector.temporary.mainView);
 
-				if (pageWasOpened) {
-					startTemporaryObserver({ target: document.querySelector('div.roam-body-main > div.rm-article-wrapper') });
-				}
-
-				let pageWasClosed = true
+				wasClosed = true
 					&& mutation.removedNodes.length > 0
 					&& mutation.removedNodes[0].children.length > 0
-					&& mutation.removedNodes[0].children[0].matches('div.roam-body-main > div.rm-article-wrapper');
+					&& mutation.removedNodes[0].children[0].matches(internals.selector.temporary.mainView);
 
-				if (pageWasClosed) {
-					stopObserver({ target: mutation.removedNodes[0].children[0] });
-				}				
-			}
-		}
-	}
-	else if (target.matches('div#right-sidebar')) {
-		callback = function observerCallbackForSidebar (mutationList) {
-
-			for (let mutation of mutationList) {
-				// the sidebar is opened/closed when this element is added/removed: target > div#roam-right-sidebar-content
-
-				let sidebarWasOpened = true
-					&& mutation.addedNodes.length > 0
-					&& mutation.addedNodes[0].matches('div#roam-right-sidebar-content');
-
-				if (sidebarWasOpened) {
-					startTemporaryObserver({ target: document.querySelector('div#roam-right-sidebar-content') });
+				// debugger;
+				if (wasOpened) {
+					startTemporaryObserver({ target: mutation.addedNodes[0].children[0] });
 				}
 
-				let sidebarWasClosed = true
-					&& mutation.removedNodes.length > 0
-					&& mutation.removedNodes[0].matches('div#roam-right-sidebar-content');
-
-				if (sidebarWasClosed) {
-					stopObserver({ target: mutation.removedNodes[0] });
-				}				
+				if (wasClosed) {
+					stopObserver({ target: mutation.removedNodes[0].children[0] });
+				}								
 			}
-		}
-	}
+			else {
+				wasOpened = true
+					&& mutation.addedNodes.length > 0
+					&& mutation.addedNodes[0].matches(internals.selector.temporary.sidebar);
 
-	// for the permanent observers we want to monitor only the target element
+				wasClosed = true
+					&& mutation.removedNodes.length > 0
+					&& mutation.removedNodes[0].matches(internals.selector.temporary.sidebar);
+
+				// debugger;
+				if (wasOpened) {
+					startTemporaryObserver({ target: mutation.addedNodes[0] });
+				}
+
+				if (wasClosed) {
+					stopObserver({ target: mutation.removedNodes[0] });
+				}
+			}
+
+		}
+	};
+
+	// for the permanent observers we want to monitor only the target element (so subtree must be false);
 
 	let options = {
 		subtree: false,
 		childList: true
 	}
+	
+	let { observer, observerId } = startObserver({ target, callback: permanentObserverCallback, options });
 
-	let { observer, observerId } = startObserver({ target, callback, options });
+	internals.cleaners.push({ 
+		observerId, 
+		handler: () => { 
 
-	if (observer != null) {
-		internals.cleaners.push({ 
-			observerId, 
-			handler: () => { 
+			log('cleaner for permanent observer', { observerId });
 
-				log('cleaner for permanent observer', { observerId });
+			observer.disconnect(); 
+			delete target.dataset.referencePathObserverId;  // might not work in safari <= 10?
+		}
+	});
+	
+	// if we already have the temporary container, initializar right away the temporary observer
 
-				observer.disconnect(); 
-				delete target.dataset.observerId;
-			}
-		});		
+	let temporaryTarget = document.querySelector(internals.selector.temporary[targetKey]);
+
+	if (temporaryTarget != null) {
+		startTemporaryObserver({ target: temporaryTarget });	
 	}
+	
 }
 
 // start one observer (abstract)
 
 function startObserver({ target, callback, options }) {
 
-	let out = {}
-
-	if (target == null || target.dataset.observerId != null) { return out }
-
 	let observer = new MutationObserver(callback);
 	observer.observe(target, options);
 
-	let observerId = String(internals.serial++);
+	let observerId = String(internals.serialId++);
+	target.dataset.referencePathObserverId = observerId;
 
-	target.dataset.observerId = observerId;
-
-	out = { observer, observerId }
+	let out = { observer, observerId };
 
 	return out;
 }
@@ -952,7 +1046,7 @@ function stopObserver({ target }) {
 	else {
 		if (target == null) { return; }
 
-		let idx = internals.cleaners.findIndex(o => o.observerId === target.dataset.observerId);
+		let idx = internals.cleaners.findIndex(o => o.observerId === target.dataset.referencePathObserverId);
 
 		if (idx === -1) { return }
 
