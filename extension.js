@@ -35,6 +35,11 @@ internals.settingsCached = {
 	bulletColorHex: null,  // derived from color + bulletColorShade
 	referenceColorHex: null,  // derived from color + referenceColorShade
 	lineColorHex: null,  // derived from color + lineColorShade
+
+	bulletColorHoverHex: null,  // derived from bulletColorHex
+	referenceColorHoverHex: null,  // derived from colreferenceColorHex
+	lineColorHoverHex: null,  // derived frolineColorHex
+
 	referenceFontWeightValue: null,  // derived from referenceFontWeightDescription
 };
 
@@ -91,7 +96,7 @@ internals.onMouseEnter = {
 		if (internals.isEditing.mainView) { return }
 
 		removeReferencePath(internals.blockList.mainView);
-		addReferencePath(internals.blockList.mainView, ev.target);
+		addReferencePath(internals.blockList.mainView, ev.target, true);
 	},
 	sidebar: function onMouseEnterSidebar (ev) {
 		// console.log('onMouseEnter (sidebar) @ ' + Date.now());
@@ -99,7 +104,7 @@ internals.onMouseEnter = {
 		if (internals.isEditing.sidebar) { return }
 
 		removeReferencePath(internals.blockList.sidebar);
-		addReferencePath(internals.blockList.sidebar, ev.target);
+		addReferencePath(internals.blockList.sidebar, ev.target, true);
 	},
 };
 
@@ -336,6 +341,11 @@ function updateSettingsCached({ key, value, resetStyle: _resetStyle }) {
 	internals.settingsCached.bulletColorHex = getColorHex({ shade: bulletColorShade });
 	internals.settingsCached.referenceColorHex = getColorHex({ shade: referenceColorShade });
 	internals.settingsCached.lineColorHex = getColorHex({ shade: lineColorShade });
+
+	internals.settingsCached.bulletColorHoverHex = getShadeAndTint(internals.settingsCached.bulletColorHex, 4).tint;
+	internals.settingsCached.referenceColorHoverHex = getShadeAndTint(internals.settingsCached.referenceColorHex, 4).tint;
+	internals.settingsCached.lineColorHoverHex = getShadeAndTint(internals.settingsCached.lineColorHex, 4).tint;
+
 	internals.settingsCached.referenceFontWeightValue = getFontWeightValue({ fontWeightDescription: referenceFontWeightDescription });
 	
 	// styles are reseted here, unless we explicitly turn it off
@@ -691,7 +701,7 @@ function startTemporaryObserver ({ target }) {
 	}
 }
 
-function addReferencePath(blockList, el) {
+function addReferencePath(blockList, el, isHover = false) {
 
 	if (internals.isDev) {
 		log('addReferencePath', { el });
@@ -700,9 +710,9 @@ function addReferencePath(blockList, el) {
 	// removeReferencePath();
 
 	let { extensionId } = internals;
-	let { bulletColorHex, bulletScaleFactor } = internals.settingsCached;
-	let { referenceColorHex, referenceFontWeightValue } = internals.settingsCached;
-	let { lineColorHex, lineRoundness, lineWidth, lineStyle, lineTopOffset, lineLeftOffset } = internals.settingsCached;
+	let { bulletColorHex, bulletColorHoverHex, bulletScaleFactor } = internals.settingsCached;
+	let { referenceColorHex, referenceColorHoverHex, referenceFontWeightValue } = internals.settingsCached;
+	let { lineColorHex, lineColorHoverHex, lineRoundness, lineWidth, lineStyle, lineTopOffset, lineLeftOffset } = internals.settingsCached;
 	let blockPrevious = null;
 
 	if (lineColorHex !== 'disabled') {
@@ -750,7 +760,7 @@ function addReferencePath(blockList, el) {
 		// 1 - set css variables for bullets
 
 		if (bulletColorHex !== 'disabled') {
-			blockEl.style.setProperty(`--${extensionId}-bullet-color`, bulletColorHex);
+			blockEl.style.setProperty(`--${extensionId}-bullet-color`, isHover ? bulletColorHoverHex : bulletColorHex);
 		}
 
 		if (bulletScaleFactor !== 'disabled') {
@@ -760,8 +770,8 @@ function addReferencePath(blockList, el) {
 		// 2 - set css variables for references (brackets and tags)
 
 		if (referenceColorHex !== 'disabled') {
-			blockEl.style.setProperty(`--${extensionId}-brackets-color`, referenceColorHex);
-			blockEl.style.setProperty(`--${extensionId}-link-color`, referenceColorHex);
+			blockEl.style.setProperty(`--${extensionId}-brackets-color`, isHover ? referenceColorHoverHex : referenceColorHex);
+			blockEl.style.setProperty(`--${extensionId}-link-color`, isHover ? referenceColorHoverHex : referenceColorHex);
 		}
 
 		if (referenceFontWeightValue !== 'disabled') {
@@ -798,7 +808,7 @@ function addReferencePath(blockList, el) {
 
 				if (boxWidthNumeric > 0 && boxHeightNumeric > 0) {
 					blockEl.style.setProperty(`--${extensionId}-line-width`, `${lineWidth}`);
-					blockEl.style.setProperty(`--${extensionId}-line-color`, lineColorHex);
+					blockEl.style.setProperty(`--${extensionId}-line-color`, isHover ? lineColorHoverHex : lineColorHex);
 					blockEl.style.setProperty(`--${extensionId}-line-style`, lineStyle);
 					blockEl.style.setProperty(`--${extensionId}-line-roundness`, `${lineRoundness}`);
 					blockEl.style.setProperty(`--${extensionId}-line-top-offset`, `${lineTopOffset}`);
@@ -1053,6 +1063,30 @@ function stopObserver({ target }) {
 		internals.cleaners[idx].handler();
 		internals.cleaners.splice(idx, 1);		
 	}
+}
+
+// shades and tints in 5% increments
+
+function getShadeAndTint(baseColor, idx, count = 20) {
+
+	let rgbIntToHex = rgbInt => Math.min(Math.max(Math.round(rgbInt), 0), 255).toString(16).padStart(2, '0');
+	let rgbToHex = (rgb) => '#' + rgb[0] + rgb[1] + rgb[2];
+	let getShade = (int, idx, count) => int * (1 - (1 / count) * idx);
+	let getTint = (int, idx, count) => int + (255 - int) * idx * (1 / count);
+
+	baseColor = baseColor.substring(1);
+	let colorRGB = [
+		parseInt(baseColor.slice(0, 2), 16),
+		parseInt(baseColor.slice(2, 4), 16),
+		parseInt(baseColor.slice(4, 6), 16)
+	];
+
+	let out = {
+		shade: rgbToHex(colorRGB.map(int => getShade(int, idx, count)).map(rgbIntToHex)),
+		tint: rgbToHex(colorRGB.map(int => getTint(int, idx, count)).map(rgbIntToHex)),
+	};
+
+	return out;
 }
 
 export default {
