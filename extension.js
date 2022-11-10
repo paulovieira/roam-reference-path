@@ -639,7 +639,7 @@ function startTemporaryObserver ({ target }) {
 		else if (textareaLiveList.length === 0) {
 			if (document.activeElement != null && document.activeElement.className.includes('cm-content') && target.contains(document.activeElement)) {
 
-				// edge case: there is no textarea and the focus IS in a code block that is a child of target
+				// edge case: the focus **IS** in a code block (and the code block is a child of target)
 
 				let closestBlock = document.activeElement.closest('div.rm-block-main');
 
@@ -653,7 +653,7 @@ function startTemporaryObserver ({ target }) {
 			}
 			else {
 
-				// common case: there is no textarea and the focus IS NOT in a code block
+				// common case: the focus **IS NOT** in a code block
 
 				removeReferencePath(blockList);
 				internals.isEditing[targetKey] = false;
@@ -674,6 +674,7 @@ function startTemporaryObserver ({ target }) {
 		subtree: true,
 		childList: true,
 		characterData: true, 
+		//attributes: true  // warning! this will make the observer terribly slow!
 	}
 
 	let { observer, observerId } = startObserver({ target, callback: temporaryObserverCallback, options });
@@ -725,14 +726,23 @@ function addReferencePath(blockList, el, isHover = false) {
 		}
 	}
 
+	let iterationCount = 0, iterationLimit = 99;
 	for(;;) {
+		if (++iterationCount > iterationLimit) {
+			log('iterationLimit reached');
+			break;
+		}
+
 		let blockContainerEl;
 
-		// optimization to avoid calling .closest(); note that el is re-assigned at the end of this loop,
-		// so usually el is either the textarea or a div.rm-block-children (so we know how to reach the 
-		// closest div.roam-block-container directly, by using only the parentElement property)
+		// 1) we are looking for the closest div.roam-block-container (relative to el) in the ancestor elements
 
-		// debugger;
+		// 1a) optimized case: do not call closest()
+
+		// this is usually safe because the DOM tree in roam is known and stable, and we usually we are able to reach
+		// the correct elements by using the .parentElement property directly; however if other extensions are loaded
+		// the DOM tree might be changed; those cases are handled below
+
 		if (el.tagName === 'TEXTAREA') {
 			blockContainerEl = el.parentElement.parentElement.parentElement;
 		}
@@ -740,22 +750,37 @@ function addReferencePath(blockList, el, isHover = false) {
 			blockContainerEl = el.parentElement;
 		}
 
-		// common-case
-
-		if (blockContainerEl.className === '' && blockContainerEl.parentElement.className.includes('roam-article')) { break; }
+		// 1b) non-optimized case: if necessary, call .closest()
 
 		if (!(blockContainerEl.className.includes('roam-block-container'))) {
 			blockContainerEl = el.closest('div.roam-block-container');
 		}
 
+		// if div.roam-block-container was not found at this point, it means we have reached
+		// the root of the DOM tree, so it's time to exit; it might also mean that the DOM tree
+		// is not as expected, in which case we exit early and abort showing the reference path;
+
 		if (blockContainerEl == null) { break; }
+
+		// 2) we are now looking for the closest div.rm-block-main (relative to blockContainerEl)
+		// in the descendant elements; we use a strategy similar to the above;
+
+		// 2a) optimized case: do not call .querySelector()
 
 		let blockEl = blockContainerEl.firstElementChild;
 
-		// make sure firstElementChild is the correct element
+		// 2b) non-optimized case: if necessary, call .querySelector()
 
-		if (!(blockEl.className.includes('rm-block-main'))) { continue; }
+		if (!(blockEl.className.includes('rm-block-main'))) {
+			blockEl = blockContainerEl.querySelector('div.rm-block-main');
+		}
 
+		// if div.rm-block-main was not found at this point it means the DOM tree is not as expected;
+		// exit early and abort showing the reference path;
+
+		if (blockEl == null) { break; }
+
+		// we now have everything we need to show the reference path
 
 		// 1 - set css variables for bullets
 
