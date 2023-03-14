@@ -325,9 +325,19 @@ function initializeSettings() {
 		updateSettingsCached({ key, value, resetStyle: false });
 	}
 
-	// detect if other extensions are loaded; if so we might need to make a few tweaks;
+
+	// make an initial detection for other extensions
+
+	for (let delayInSeconds of [1, 2, 4, 8]) {
+		setTimeout(detectOtherExtensions, delayInSeconds * 1000);
+	}
+}
+
+function detectOtherExtensions() {
 
 	internals.installedExtensions.roamStudio = (document.querySelectorAll('style[id^="roamstudio"]').length > 0);
+
+	// add more detections here
 }
 
 function updateSettingsCached({ key, value, resetStyle: _resetStyle }) {
