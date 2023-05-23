@@ -497,7 +497,7 @@ function addStyle() {
 				border-right: none;
 				border-top: none;
 				pointer-events: none;
-				z-index: 11;
+				z-index: 20;
 			}
 		`;
 	}
@@ -635,7 +635,7 @@ function startTemporaryObserver ({ target }) {
 		}
 
 
-		// is there any situation where we 2 or more textareas?
+		// is there any situation where we have 2 or more textareas?
 
 		if (internals.isDev && textareaLiveList.length > 1) { debugger }
 
@@ -749,7 +749,7 @@ function addReferencePath(blockList, el, isHover = false) {
 
 		// 1a) optimized case: do not call closest()
 
-		// this is usually safe because the DOM tree in roam is known and stable, and we usually we are able to reach
+		// this is usually safe because the DOM tree in roam is known and stable, and we usually are able to reach
 		// the correct elements by using the .parentElement property directly; however if other extensions are loaded
 		// the DOM tree might be changed; those cases are handled below
 
