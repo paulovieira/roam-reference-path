@@ -20,7 +20,6 @@ internals.settingsCached = {
 	bulletScaleFactor: null,
 
 	referenceColorShade: null,
-	referenceFontWeightDescription: null,
 
 	lineColorShade: null,
 	lineWidth: null,
@@ -39,8 +38,6 @@ internals.settingsCached = {
 	bulletColorHoverHex: null,  // derived from bulletColorHex
 	referenceColorHoverHex: null,  // derived from colreferenceColorHex
 	lineColorHoverHex: null,  // derived frolineColorHex
-
-	referenceFontWeightValue: null,  // derived from referenceFontWeightDescription
 };
 
 internals.settingsDefault = {
@@ -50,7 +47,6 @@ internals.settingsDefault = {
 	bulletScaleFactor: '1.5',
 	
 	referenceColorShade: '500',
-	referenceFontWeightDescription: 'medium',
 
 	lineColorShade: '500',
 	lineWidth: '1px',
@@ -215,18 +211,6 @@ function initializeSettings() {
 	});
 
 	panelConfig.settings.push({
-		id: 'referenceFontWeightDescription',
-		name: 'References (double brackets and tags): font weight',
-		// description: 'Make the references that belong to blocks in the active path stand out.',
-		action: {
-			type: 'select',
-			// weight names corresponding to ['300', '400', '500', '600', '700']
-			items: ['disabled', 'light', 'normal', 'medium', 'semibold', 'bold'],
-			onChange: value => { updateSettingsCached({ key: 'referenceFontWeightDescription', value }) },
-		},
-	});
-
-	panelConfig.settings.push({
 		id: 'lineColorShade',
 		name: 'Lines: color shade',
 		description: 'See the description given for bullets. If this setting is disabled, the remaining settings for lines will also be disabled.',
@@ -346,7 +330,7 @@ function updateSettingsCached({ key, value, resetStyle: _resetStyle }) {
 
 	// derived settings
 
-	let { bulletColorShade, referenceColorShade, lineColorShade, referenceFontWeightDescription } = internals.settingsCached;
+	let { bulletColorShade, referenceColorShade, lineColorShade } = internals.settingsCached;
 
 	internals.settingsCached.bulletColorHex = getColorHex({ shade: bulletColorShade });
 	internals.settingsCached.referenceColorHex = getColorHex({ shade: referenceColorShade });
@@ -356,8 +340,6 @@ function updateSettingsCached({ key, value, resetStyle: _resetStyle }) {
 	internals.settingsCached.referenceColorHoverHex = getShadeAndTint(internals.settingsCached.referenceColorHex, 4).tint;
 	internals.settingsCached.lineColorHoverHex = getShadeAndTint(internals.settingsCached.lineColorHex, 4).tint;
 
-	internals.settingsCached.referenceFontWeightValue = getFontWeightValue({ fontWeightDescription: referenceFontWeightDescription });
-	
 	// styles are reseted here, unless we explicitly turn it off
 
 	if (_resetStyle !== false) {
@@ -389,22 +371,6 @@ function getColorHex({ shade }) {
 	let colorHex = internals.tailwindColors[color][shadeIdx];
 
 	return colorHex;
-}
-
-function getFontWeightValue({ fontWeightDescription }) {
-
-	// https://developer.mozilla.org/en-US/docs/Web/CSS/font-weight#common_weight_name_mapping
-
-	let nameToValue = {
-		'light': '300',
-		'normal': '400',
-		'medium': '500',
-		'semibold': '600',
-		'bold': '700',
-		'disabled': 'disabled'
-	}
-
-	return nameToValue[fontWeightDescription];
 }
 
 function resetStyle() {
@@ -465,21 +431,9 @@ function addStyle() {
 		`;
 	}
 
-	if (internals.settingsCached.referenceFontWeightValue !== 'disabled') {
-		textContent += `
-			[data-reference-path-has-style] > div.rm-block-text span.rm-page-ref__brackets {
-				font-weight:  var(--${extensionId}-brackets-weight);
-			}
-
-			[data-reference-path-has-style] > div.rm-block-text span.rm-page-ref--link {
-				font-weight:  var(--${extensionId}-link-weight);
-			}
-
-			[data-reference-path-has-style] > div.rm-block-text span.rm-page-ref--tag {
-				font-weight:  var(--${extensionId}-link-weight);
-			}
-		`;
-	}
+	// note: the references in a path block are emphasised with colour only. font-weight
+	// was intentionally dropped: bolder text is wider, so it reflowed the block (pushing
+	// text onto another line) whenever a reference sat near a line-wrap boundary.
 
 	if (internals.settingsCached.lineColorHex !== 'disabled') {
 		textContent += `
@@ -762,7 +716,7 @@ function addReferencePath(blockList, el, isHover = false) {
 
 	let { extensionId } = internals;
 	let { bulletColorHex, bulletColorHoverHex, bulletScaleFactor } = internals.settingsCached;
-	let { referenceColorHex, referenceColorHoverHex, referenceFontWeightValue } = internals.settingsCached;
+	let { referenceColorHex, referenceColorHoverHex } = internals.settingsCached;
 	let { lineColorHex, lineColorHoverHex, lineRoundness, lineWidth, lineStyle, lineTopOffset, lineLeftOffset } = internals.settingsCached;
 	let blockPrevious = null;
 
@@ -840,11 +794,6 @@ function addReferencePath(blockList, el, isHover = false) {
 		if (referenceColorHex !== 'disabled') {
 			blockEl.style.setProperty(`--${extensionId}-brackets-color`, isHover ? referenceColorHoverHex : referenceColorHex);
 			blockEl.style.setProperty(`--${extensionId}-link-color`, isHover ? referenceColorHoverHex : referenceColorHex);
-		}
-
-		if (referenceFontWeightValue !== 'disabled') {
-			blockEl.style.setProperty(`--${extensionId}-brackets-weight`, referenceFontWeightValue);
-			blockEl.style.setProperty(`--${extensionId}-link-weight`, referenceFontWeightValue);
 		}
 
 		if (lineColorHex !== 'disabled') {
@@ -951,9 +900,7 @@ function removeReferencePath(blockList) {
 		blockEl.style.removeProperty(`--${extensionId}-bullet-color`);
 		
 		blockEl.style.removeProperty(`--${extensionId}-brackets-color`);
-		blockEl.style.removeProperty(`--${extensionId}-brackets-weight`);
 		blockEl.style.removeProperty(`--${extensionId}-link-color`);
-		blockEl.style.removeProperty(`--${extensionId}-link-weight`);
 
 		blockEl.style.removeProperty(`--${extensionId}-line-color`);
 		blockEl.style.removeProperty(`--${extensionId}-line-roundness`);

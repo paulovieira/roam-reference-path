@@ -1,0 +1,48 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>reference-path refs/reflow fixture</title>
+<style>
+  * { box-sizing: content-box; }
+  body { margin: 0; padding: 20px; font-family: sans-serif; }
+  .rm-block-children { margin-left: 24px; }
+  .rm-block-main { position: relative; }
+  .rm-block-main > .controls { display: inline-block; vertical-align: top; }
+  .controls span.bp3-popover-target {
+    position: absolute; left: 2px; top: 5px; width: 12px; height: 12px;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .controls span.rm-bullet { display: flex; align-items: center; justify-content: center; width: 12px; height: 12px; }
+  .controls span.rm-bullet__inner { width: 6px; height: 6px; border-radius: 50%; background: #a3a3a3; }
+  /* fixed width so a width change in the content reflows to another line */
+  .rm-block-text { display: inline-block; width: 460px; line-height: 24px; font-size: 15px; vertical-align: top; }
+  .rm-page-ref--link, .rm-page-ref--tag { color: #106ba3; }
+  .rm-page-ref__brackets { color: #a7b6c2; }
+</style>
+</head>
+<body>
+<div class="roam-main">
+ <div class="rm-article-wrapper">
+  <div class="roam-article">
+
+   <div class="roam-block-container">
+     <div class="rm-block-main" data-testid="parent"><div class="controls"><span class="bp3-popover-target"><span class="rm-bullet"><span class="rm-bullet__inner"></span></span></span></div><div class="rm-block-text" data-testid="parent-text">cd到 essays/physical-therapy-exercise/ ，和cc讨论，制定一下 <span class="rm-page-ref__brackets">[[</span><span class="rm-page-ref rm-page-ref--link" data-testid="ref">Fitness (健身)</span><span class="rm-page-ref__brackets">]]</span> 计划，和杜威商量是否可行。下面是需求：</div></div>
+     <div class="rm-block-children">
+       <div class="roam-block-container">
+         <div class="rm-block-main" data-testid="child"><div class="controls"><span class="bp3-popover-target"><span class="rm-bullet"><span class="rm-bullet__inner"></span></span></span></div><div class="rm-block-text" data-testid="child-text">运动康复</div></div>
+       </div>
+     </div>
+   </div>
+
+  </div>
+ </div>
+</div>
+
+<script type="module">
+  import { addReferencePath, removeReferencePath, addStyle, internals } from '/extension.js';
+  window.__rp = { addReferencePath, removeReferencePath, addStyle, internals };
+  window.__rpReady = true;
+</script>
+</body>
+</html>
