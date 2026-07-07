@@ -20,7 +20,6 @@ internals.settingsCached = {
 	bulletScaleFactor: null,
 
 	referenceColorShade: null,
-	referenceFontWeightDescription: null,
 
 	lineColorShade: null,
 	lineWidth: null,
@@ -39,8 +38,6 @@ internals.settingsCached = {
 	bulletColorHoverHex: null,  // derived from bulletColorHex
 	referenceColorHoverHex: null,  // derived from colreferenceColorHex
 	lineColorHoverHex: null,  // derived frolineColorHex
-
-	referenceFontWeightValue: null,  // derived from referenceFontWeightDescription
 };
 
 internals.settingsDefault = {
@@ -50,7 +47,6 @@ internals.settingsDefault = {
 	bulletScaleFactor: '1.5',
 	
 	referenceColorShade: '500',
-	referenceFontWeightDescription: 'medium',
 
 	lineColorShade: '500',
 	lineWidth: '1px',
@@ -215,18 +211,6 @@ function initializeSettings() {
 	});
 
 	panelConfig.settings.push({
-		id: 'referenceFontWeightDescription',
-		name: 'References (double brackets and tags): font weight',
-		// description: 'Make the references that belong to blocks in the active path stand out.',
-		action: {
-			type: 'select',
-			// weight names corresponding to ['300', '400', '500', '600', '700']
-			items: ['disabled', 'light', 'normal', 'medium', 'semibold', 'bold'],
-			onChange: value => { updateSettingsCached({ key: 'referenceFontWeightDescription', value }) },
-		},
-	});
-
-	panelConfig.settings.push({
 		id: 'lineColorShade',
 		name: 'Lines: color shade',
 		description: 'See the description given for bullets. If this setting is disabled, the remaining settings for lines will also be disabled.',
@@ -284,7 +268,7 @@ function initializeSettings() {
 	panelConfig.settings.push({
 		id: 'lineTopOffset',
 		name: 'Lines: top offset (ADVANCED)',
-		description: 'Use a value different from auto only if the line seems out of place vertically. Recommended values are between 9.5px and 10.5px (depends on the line width).',
+		description: 'Leave as auto: the offset is measured automatically from the bullet, so the line stays aligned on headings and tall blocks. Use an explicit value only if the line still seems out of place vertically.',
 		action: {
 			type: 'select',
 			items: ['auto', '6.5px', '7.0px', '7.5px', '8px', '8.5px', '9px', '9.5px', '10px', '10.5px', '11px', '11.5px', '12.0px', '12.5px'],
@@ -295,7 +279,7 @@ function initializeSettings() {
 	panelConfig.settings.push({
 		id: 'lineLeftOffset',
 		name: 'Lines: left offset (ADVANCED)',
-		description: 'Use a value different from auto only if the line seems out of place horizontally. Recommended values are between 5px and 6px (depends on the line width).',
+		description: 'Leave as auto: the offset is measured automatically from the bullet. Use an explicit value only if the line seems out of place horizontally.',
 		action: {
 			type: 'select',
 			items: ['auto', '3.5px', '4px', '4.5px', '5px', '5.5px', '6px', '6.5px', '7px', '7.5px', '8px', '8.5px'],
@@ -346,7 +330,7 @@ function updateSettingsCached({ key, value, resetStyle: _resetStyle }) {
 
 	// derived settings
 
-	let { bulletColorShade, referenceColorShade, lineColorShade, referenceFontWeightDescription } = internals.settingsCached;
+	let { bulletColorShade, referenceColorShade, lineColorShade } = internals.settingsCached;
 
 	internals.settingsCached.bulletColorHex = getColorHex({ shade: bulletColorShade });
 	internals.settingsCached.referenceColorHex = getColorHex({ shade: referenceColorShade });
@@ -356,8 +340,6 @@ function updateSettingsCached({ key, value, resetStyle: _resetStyle }) {
 	internals.settingsCached.referenceColorHoverHex = getShadeAndTint(internals.settingsCached.referenceColorHex, 4).tint;
 	internals.settingsCached.lineColorHoverHex = getShadeAndTint(internals.settingsCached.lineColorHex, 4).tint;
 
-	internals.settingsCached.referenceFontWeightValue = getFontWeightValue({ fontWeightDescription: referenceFontWeightDescription });
-	
 	// styles are reseted here, unless we explicitly turn it off
 
 	if (_resetStyle !== false) {
@@ -389,22 +371,6 @@ function getColorHex({ shade }) {
 	let colorHex = internals.tailwindColors[color][shadeIdx];
 
 	return colorHex;
-}
-
-function getFontWeightValue({ fontWeightDescription }) {
-
-	// https://developer.mozilla.org/en-US/docs/Web/CSS/font-weight#common_weight_name_mapping
-
-	let nameToValue = {
-		'light': '300',
-		'normal': '400',
-		'medium': '500',
-		'semibold': '600',
-		'bold': '700',
-		'disabled': 'disabled'
-	}
-
-	return nameToValue[fontWeightDescription];
 }
 
 function resetStyle() {
@@ -465,21 +431,9 @@ function addStyle() {
 		`;
 	}
 
-	if (internals.settingsCached.referenceFontWeightValue !== 'disabled') {
-		textContent += `
-			[data-reference-path-has-style] > div.rm-block-text span.rm-page-ref__brackets {
-				font-weight:  var(--${extensionId}-brackets-weight);
-			}
-
-			[data-reference-path-has-style] > div.rm-block-text span.rm-page-ref--link {
-				font-weight:  var(--${extensionId}-link-weight);
-			}
-
-			[data-reference-path-has-style] > div.rm-block-text span.rm-page-ref--tag {
-				font-weight:  var(--${extensionId}-link-weight);
-			}
-		`;
-	}
+	// note: the references in a path block are emphasised with colour only. font-weight
+	// was intentionally dropped: bolder text is wider, so it reflowed the block (pushing
+	// text onto another line) whenever a reference sat near a line-wrap boundary.
 
 	if (internals.settingsCached.lineColorHex !== 'disabled') {
 		textContent += `
@@ -689,17 +643,57 @@ function startTemporaryObserver ({ target }) {
 
 	let { observer, observerId } = startObserver({ target, callback: temporaryObserverCallback, options });
 
-	internals.cleaners.push({ 
+	// the reference path line is positioned from getBoundingClientRect measurements
+	// taken at draw time; scrolling does not trigger a DOM mutation, so without this
+	// the line drifts out of alignment with the bullets after the page is scrolled.
+	// recompute it (throttled to one redraw per frame) while a path is shown.
+
+	let scrollRedrawScheduled = false;
+
+	let onScroll = function onScroll () {
+
+		if (scrollRedrawScheduled) { return }
+		if (blockList.length === 0) { return }  // no path currently shown for this target
+
+		scrollRedrawScheduled = true;
+
+		requestAnimationFrame(function redrawOnScroll () {
+
+			scrollRedrawScheduled = false;
+
+			if (blockList.length === 0) { return }
+
+			// redraw from the block currently being edited (its textarea), or from the
+			// focused code block; anything else means there is nothing to keep aligned
+
+			if (textareaLiveList.length > 0) {
+				removeReferencePath(blockList);
+				addReferencePath(blockList, textareaLiveList.item(0));
+			}
+			else if (document.activeElement != null && document.activeElement.className.includes('cm-content') && target.contains(document.activeElement)) {
+				removeReferencePath(blockList);
+				addReferencePath(blockList, document.activeElement);
+			}
+		});
+	};
+
+	// scroll events do not bubble, but a capture-phase listener on window catches
+	// scrolling from any scroll container in the page (main view and sidebar)
+
+	window.addEventListener('scroll', onScroll, { capture: true, passive: true });
+
+	internals.cleaners.push({
 		observerId,
-		handler: () => { 
+		handler: () => {
 
 			log('cleaner for temporary observer', { observerId });
 
 			observer.disconnect();
+			window.removeEventListener('scroll', onScroll, true);
 			delete target.dataset.referencePathObserverId;  // might not work in safari <= 10?
 			removeReferencePath(blockList);
 			removeMouseHoverListeners(target);
-		} 
+		}
 	});
 
 	// initialize the hover behaviours; note that addMouseHoverListeners is also called in the temporary 
@@ -722,19 +716,12 @@ function addReferencePath(blockList, el, isHover = false) {
 
 	let { extensionId } = internals;
 	let { bulletColorHex, bulletColorHoverHex, bulletScaleFactor } = internals.settingsCached;
-	let { referenceColorHex, referenceColorHoverHex, referenceFontWeightValue } = internals.settingsCached;
+	let { referenceColorHex, referenceColorHoverHex } = internals.settingsCached;
 	let { lineColorHex, lineColorHoverHex, lineRoundness, lineWidth, lineStyle, lineTopOffset, lineLeftOffset } = internals.settingsCached;
 	let blockPrevious = null;
 
-	if (lineColorHex !== 'disabled') {
-		if (lineTopOffset === 'auto') {
-			lineTopOffset = getLineTopOffsetAuto(lineWidth);
-		}
-
-		if (lineLeftOffset === 'auto') {
-			lineLeftOffset = getLineLeftOffsetAuto(lineWidth);
-		}
-	}
+	// note: when lineTopOffset/lineLeftOffset are 'auto' they are resolved per-block
+	// inside the loop, using the measured bullet geometry (see below)
 
 	let iterationCount = 0, iterationLimit = 99;
 	for(;;) {
@@ -809,11 +796,6 @@ function addReferencePath(blockList, el, isHover = false) {
 			blockEl.style.setProperty(`--${extensionId}-link-color`, isHover ? referenceColorHoverHex : referenceColorHex);
 		}
 
-		if (referenceFontWeightValue !== 'disabled') {
-			blockEl.style.setProperty(`--${extensionId}-brackets-weight`, referenceFontWeightValue);
-			blockEl.style.setProperty(`--${extensionId}-link-weight`, referenceFontWeightValue);
-		}
-
 		if (lineColorHex !== 'disabled') {
 
 			// 3 - set css variables for lines
@@ -830,30 +812,63 @@ function addReferencePath(blockList, el, isHover = false) {
 			else {
 				// reference: https://developer.mozilla.org/en-US/docs/Web/API/Element/getBoundingClientRect
 
-				let bboxCurrent = blockEl.getBoundingClientRect()
-				let bboxPrevious = blockPrevious.getBoundingClientRect()
+				// measure the actual bullet elements instead of the block's top-left corner
+				// plus a fixed offset; this keeps the connector aligned regardless of block
+				// height - in particular for heading blocks (h1/h2/h3) and blocks with tall
+				// embeds/images, where the bullet centre is far from `blockTop + <constant>`
 
-				// normally we have boxWidth > 0 and boxHeight > 0, but there are some cases in which 
-				// boxHeight is 0 (embedded blocks)
+				let parentBullet = blockEl.querySelector('span.bp3-popover-target');
+				let childBullet = blockPrevious.querySelector('span.bp3-popover-target');
 
-				// TODO: in RTL languages this logic must be inverted somehow
+				if (parentBullet != null && childBullet != null) {
 
-				let boxWidthNumeric = bboxPrevious.x - bboxCurrent.x;
-				let boxHeightNumeric = bboxPrevious.y - bboxCurrent.y;
+					let parentBox = parentBullet.getBoundingClientRect();
+					let childBox = childBullet.getBoundingClientRect();
 
-				if (boxWidthNumeric > 0 && boxHeightNumeric > 0) {
-					blockEl.style.setProperty(`--${extensionId}-line-width`, `${lineWidth}`);
-					blockEl.style.setProperty(`--${extensionId}-line-color`, isHover ? lineColorHoverHex : lineColorHex);
-					blockEl.style.setProperty(`--${extensionId}-line-style`, lineStyle);
-					blockEl.style.setProperty(`--${extensionId}-line-roundness`, `${lineRoundness}`);
-					blockEl.style.setProperty(`--${extensionId}-line-top-offset`, `${lineTopOffset}`);
-					blockEl.style.setProperty(`--${extensionId}-line-left-offset`, `${lineLeftOffset}`);
+					let parentCenterX = parentBox.x + parentBox.width / 2;
+					let parentCenterY = parentBox.y + parentBox.height / 2;
+					let childCenterX = childBox.x + childBox.width / 2;
+					let childCenterY = childBox.y + childBox.height / 2;
 
-					let boxWidth = `${boxWidthNumeric}px`;
-					let boxHeight = `${boxHeightNumeric}px`;
+					// the connector goes from the parent bullet centre down/right to the child
+					// bullet centre; the ::before is positioned relative to the parent bullet
+					// (addStyle marks span.bp3-popover-target as position:relative)
 
-					blockEl.style.setProperty(`--${extensionId}-box-width`, `${boxWidth}`);
-					blockEl.style.setProperty(`--${extensionId}-box-height`, `${boxHeight}`);			
+					let boxWidthNumeric = childCenterX - parentCenterX;
+					let boxHeightNumeric = childCenterY - parentCenterY;
+
+					// normally we have boxWidth > 0 and boxHeight > 0, but there are some cases in which
+					// boxHeight is 0 (embedded blocks)
+
+					// TODO: in RTL languages this logic must be inverted somehow
+
+					if (boxWidthNumeric > 0 && boxHeightNumeric > 0) {
+
+						// the ::before is absolutely positioned, so it is placed relative to its
+						// containing block: the bullet itself if Roam positions it (it does -
+						// the bullet is position:absolute in the gutter), otherwise the bullet's
+						// offset parent. we must NOT force position on the bullet here: overriding
+						// Roam's absolute bullet with position:relative pulls it back into the flow
+						// and reflows the whole block. instead we measure the real containing block
+						// and offset the connector corner to the parent bullet centre relative to it.
+						// 'auto' does this; an explicit value (the ADVANCED settings) still overrides it.
+
+						let containingBlock = (getComputedStyle(parentBullet).position !== 'static') ? parentBullet : parentBullet.offsetParent;
+						let originRect = (containingBlock || blockEl).getBoundingClientRect();
+
+						let topOffset = (lineTopOffset === 'auto') ? `${parentCenterY - originRect.top}px` : lineTopOffset;
+						let leftOffset = (lineLeftOffset === 'auto') ? `${parentCenterX - originRect.left}px` : lineLeftOffset;
+
+						blockEl.style.setProperty(`--${extensionId}-line-width`, `${lineWidth}`);
+						blockEl.style.setProperty(`--${extensionId}-line-color`, isHover ? lineColorHoverHex : lineColorHex);
+						blockEl.style.setProperty(`--${extensionId}-line-style`, lineStyle);
+						blockEl.style.setProperty(`--${extensionId}-line-roundness`, `${lineRoundness}`);
+						blockEl.style.setProperty(`--${extensionId}-line-top-offset`, topOffset);
+						blockEl.style.setProperty(`--${extensionId}-line-left-offset`, leftOffset);
+
+						blockEl.style.setProperty(`--${extensionId}-box-width`, `${boxWidthNumeric}px`);
+						blockEl.style.setProperty(`--${extensionId}-box-height`, `${boxHeightNumeric}px`);
+					}
 				}
 			}
 		}
@@ -885,9 +900,7 @@ function removeReferencePath(blockList) {
 		blockEl.style.removeProperty(`--${extensionId}-bullet-color`);
 		
 		blockEl.style.removeProperty(`--${extensionId}-brackets-color`);
-		blockEl.style.removeProperty(`--${extensionId}-brackets-weight`);
 		blockEl.style.removeProperty(`--${extensionId}-link-color`);
-		blockEl.style.removeProperty(`--${extensionId}-link-weight`);
 
 		blockEl.style.removeProperty(`--${extensionId}-line-color`);
 		blockEl.style.removeProperty(`--${extensionId}-line-roundness`);
@@ -906,37 +919,6 @@ function removeReferencePath(blockList) {
 	blockList.length = 0;
 }
 
-function getLineTopOffsetAuto(lineWidth) {
-
-	lineWidth = parseFloat(lineWidth);
-	let lineTopOffset = '';
-
-	if (internals.installedExtensions.roamStudio) {
-		if (lineWidth === 1) {
-			lineTopOffset = '7.0px';
-		}
-		else if (lineWidth === 2) {
-			lineTopOffset = '7.5px';
-		}
-		else if (lineWidth === 3) {
-			lineTopOffset = '8.0px';
-		}		
-	}
-	else {
-		if (lineWidth === 1) {
-			lineTopOffset = '9.5px';
-		}
-		else if (lineWidth === 2) {
-			lineTopOffset = '10px';
-		}
-		else if (lineWidth === 3) {
-			lineTopOffset = '10.5px';
-		}		
-	}
-
-	return lineTopOffset;
-}
-
 function getTargetKey({ target }) {
 
 	let targetKey = '';
@@ -952,24 +934,6 @@ function getTargetKey({ target }) {
 	}
 
 	return targetKey;
-}
-
-function getLineLeftOffsetAuto(lineWidth, bulletScaleFactor) {
-
-	lineWidth = parseFloat(lineWidth);
-	let lineLeftOffset = '';
-
-	if (lineWidth === 1) {
-		lineLeftOffset = '6px';
-	}
-	else if (lineWidth === 2) {
-		lineLeftOffset = '5.5px';
-	}
-	else if (lineWidth === 3) {
-		lineLeftOffset = '5px';
-	}
-
-	return lineLeftOffset;
 }
 
 function startPermanentObserver({ target }) {
