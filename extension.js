@@ -693,17 +693,57 @@ function startTemporaryObserver ({ target }) {
 
 	let { observer, observerId } = startObserver({ target, callback: temporaryObserverCallback, options });
 
-	internals.cleaners.push({ 
+	// the reference path line is positioned from getBoundingClientRect measurements
+	// taken at draw time; scrolling does not trigger a DOM mutation, so without this
+	// the line drifts out of alignment with the bullets after the page is scrolled.
+	// recompute it (throttled to one redraw per frame) while a path is shown.
+
+	let scrollRedrawScheduled = false;
+
+	let onScroll = function onScroll () {
+
+		if (scrollRedrawScheduled) { return }
+		if (blockList.length === 0) { return }  // no path currently shown for this target
+
+		scrollRedrawScheduled = true;
+
+		requestAnimationFrame(function redrawOnScroll () {
+
+			scrollRedrawScheduled = false;
+
+			if (blockList.length === 0) { return }
+
+			// redraw from the block currently being edited (its textarea), or from the
+			// focused code block; anything else means there is nothing to keep aligned
+
+			if (textareaLiveList.length > 0) {
+				removeReferencePath(blockList);
+				addReferencePath(blockList, textareaLiveList.item(0));
+			}
+			else if (document.activeElement != null && document.activeElement.className.includes('cm-content') && target.contains(document.activeElement)) {
+				removeReferencePath(blockList);
+				addReferencePath(blockList, document.activeElement);
+			}
+		});
+	};
+
+	// scroll events do not bubble, but a capture-phase listener on window catches
+	// scrolling from any scroll container in the page (main view and sidebar)
+
+	window.addEventListener('scroll', onScroll, { capture: true, passive: true });
+
+	internals.cleaners.push({
 		observerId,
-		handler: () => { 
+		handler: () => {
 
 			log('cleaner for temporary observer', { observerId });
 
 			observer.disconnect();
+			window.removeEventListener('scroll', onScroll, true);
 			delete target.dataset.referencePathObserverId;  // might not work in safari <= 10?
 			removeReferencePath(blockList);
 			removeMouseHoverListeners(target);
-		} 
+		}
 	});
 
 	// initialize the hover behaviours; note that addMouseHoverListeners is also called in the temporary 
@@ -1101,9 +1141,9 @@ export default {
 	onunload
 };
 
-// named exports used only by the automated test harness (test/reference-path.spec.js);
+// named exports used only by the automated test harness (test/*.spec.js);
 // Roam Depot loads the default export, so these have no effect on the extension at runtime
-export { addReferencePath, removeReferencePath, addStyle, internals };
+export { addReferencePath, removeReferencePath, addStyle, startTemporaryObserver, stopObserver, internals };
 
 
 // https://tailwindcss.com/docs/customizing-colors

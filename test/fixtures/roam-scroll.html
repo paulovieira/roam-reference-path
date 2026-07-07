@@ -1,0 +1,65 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>reference-path scroll fixture</title>
+<style>
+  * { box-sizing: content-box; }
+  body { margin: 0; padding: 20px; font-family: sans-serif; }
+  .rm-block-children { margin-left: 24px; }
+  .rm-block-main {
+    position: relative; display: flex; align-items: flex-start;
+    padding: 0; border: 0; margin: 0;
+  }
+  .rm-block-main > .controls {
+    flex: 0 0 12px; width: 12px; height: 20px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .rm-block-main.rm-heading-level-1 > .controls { height: 48px; }
+  .controls span.bp3-popover-target { display: inline-block; width: 12px; height: 12px; }
+  .controls span.rm-bullet { display: flex; align-items: center; justify-content: center; width: 12px; height: 12px; }
+  .controls span.rm-bullet__inner { width: 6px; height: 6px; border-radius: 50%; background: #a3a3a3; }
+  .rm-block-text { line-height: 20px; font-size: 14px; padding: 0; }
+  .rm-heading-level-1 .rm-block-text { line-height: 48px; font-size: 30px; font-weight: 700; }
+  .rm-block-text textarea { font: inherit; border: 0; padding: 0; margin: 0; width: 320px; resize: none; }
+</style>
+</head>
+<body>
+<div class="roam-main">
+ <div class="rm-article-wrapper">
+  <div class="roam-article">
+
+   <!-- parent (H1) -->
+   <div class="roam-block-container">
+     <div class="rm-block-main rm-heading-level-1" data-testid="parent">
+       <div class="controls"><span class="bp3-popover-target"><span class="rm-bullet"><span class="rm-bullet__inner"></span></span></span></div>
+       <div class="rm-block-text">CH2 卡片大法</div>
+     </div>
+     <div class="rm-block-children">
+
+       <!-- child = the ACTIVE / edited block, in edit mode (textarea present).
+            The textarea sits 3 levels under roam-block-container, matching Roam's
+            edit-mode structure that addReferencePath relies on. -->
+       <div class="roam-block-container">
+         <div class="rm-block-main" data-testid="child">
+           <div class="controls"><span class="bp3-popover-target"><span class="rm-bullet"><span class="rm-bullet__inner"></span></span></span></div>
+           <div class="rm-block-text"><textarea data-testid="active-textarea">组块：人类的大脑在意识层面，通过对组块来进行计算与排列组合，产生思想。</textarea></div>
+         </div>
+       </div>
+
+     </div>
+   </div>
+
+  </div>
+ </div>
+</div>
+
+<script type="module">
+  import { addReferencePath, removeReferencePath, addStyle, internals } from '/extension.js';
+  // startTemporaryObserver is internal; expose the whole module namespace instead
+  import * as ext from '/extension.js';
+  window.__rp = { addReferencePath, removeReferencePath, addStyle, internals, ext };
+  window.__rpReady = true;
+</script>
+</body>
+</html>
