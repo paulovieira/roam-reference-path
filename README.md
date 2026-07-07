@@ -43,6 +43,20 @@ If both modes are enabled, hover mode works only when there is no block being ed
 This extension was carefully tested with the default Roam theme and with Roam Studio. It should be possible to use it safely with other extensions or custom themes available in Roam Depot. If you notice any incompatibility with other extensions, please open an issue on github so that it can be fixed.
 
 
+## Development / tests
+
+There is no build step: `extension.js` is loaded directly by Roam Depot.
+
+Automated tests use [Playwright](https://playwright.dev/) against a synthetic Roam DOM fixture (no Roam login required), verifying that the reference-path connector stays aligned with the bullet on heading and normal blocks. Real browser layout is required (`getBoundingClientRect`), so the tests run in Chrome:
+
+```
+npm install
+npm test
+```
+
+The tests use the locally installed Google Chrome (`channel: 'chrome'`), so no browser download is needed.
+
+
 ## Future improvements
 - document the available options (or at least show a printscreen of the settings screen)
 - review the extension name: "reference path" is also used in Settings -> User (in the context of block references), so it can be confusing.

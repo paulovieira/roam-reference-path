@@ -1,0 +1,132 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>reference-path fixture</title>
+<style>
+  /* ---- minimal reproduction of Roam's outline layout ---------------------
+     The only properties that matter for this test are the ones that affect
+     bullet geometry: rm-block-main is a positioned flex row; the bullet
+     (span.bp3-popover-target) is vertically centered within the FIRST line's
+     box, whose height depends on the heading level. This is what makes a
+     heading block's bullet centre sit far below `blockTop + 9.5px` (the old
+     hard-coded offset) and is exactly the case the fix must handle. */
+  * { box-sizing: content-box; }
+  body { margin: 0; padding: 20px; font-family: sans-serif; }
+
+  .roam-block-container { }
+  .rm-block-children { margin-left: 24px; }
+
+  /* positioned row -> becomes the offsetParent of the ::before in the ORIGINAL
+     code (which does not position the bullet span). border/padding kept at 0 so
+     the border-box origin equals the padding-box origin used for absolute pos. */
+  .rm-block-main {
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    padding: 0; border: 0; margin: 0;
+  }
+
+  /* controls column holds the bullet; its height == the first line box, so the
+     bullet is centred on the first line (like Roam). */
+  .rm-block-main > .controls {
+    flex: 0 0 12px;
+    width: 12px;
+    height: 20px;                /* normal block line box */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .rm-block-main.rm-heading-level-1 > .controls { height: 48px; }
+  .rm-block-main.rm-heading-level-2 > .controls { height: 40px; }
+
+  .controls span.bp3-popover-target {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+  }
+  .controls span.rm-bullet {
+    display: flex; align-items: center; justify-content: center;
+    width: 12px; height: 12px;
+  }
+  .controls span.rm-bullet__inner {
+    width: 6px; height: 6px; border-radius: 50%; background: #a3a3a3;
+  }
+
+  .rm-block-text { line-height: 20px; font-size: 14px; padding: 0; }
+  .rm-heading-level-1 .rm-block-text { line-height: 48px; font-size: 30px; font-weight: 700; }
+  .rm-heading-level-2 .rm-block-text { line-height: 40px; font-size: 22px; font-weight: 600; }
+
+  .tall-embed { width: 400px; height: 280px; background: #2b2b33; }
+</style>
+</head>
+<body>
+<div class="roam-main">
+ <div class="rm-article-wrapper">
+  <div class="roam-article">
+
+   <!-- L1: CH2 (H1 heading) -->
+   <div class="roam-block-container">
+     <div class="rm-block-main rm-heading-level-1" data-testid="ch2">
+       <div class="controls"><span class="bp3-popover-target"><span class="rm-bullet"><span class="rm-bullet__inner"></span></span></span></div>
+       <div class="rm-block-text">CH2 卡片大法</div>
+     </div>
+     <div class="rm-block-children">
+
+       <!-- L2: a tall embedded-image block (sibling, NOT on the path) that pushes
+            the next sibling far down, reproducing the large vertical gap in the
+            user's screenshot -->
+       <div class="roam-block-container">
+         <div class="rm-block-main rm-heading-level-2" data-testid="img">
+           <div class="controls"><span class="bp3-popover-target"><span class="rm-bullet"><span class="rm-bullet__inner"></span></span></span></div>
+           <div class="rm-block-text">写作的四则运算<div class="tall-embed"></div></div>
+         </div>
+       </div>
+
+       <!-- L2: 卡片拼接 (H2 heading) -- on the path -->
+       <div class="roam-block-container">
+         <div class="rm-block-main rm-heading-level-2" data-testid="pinjie">
+           <div class="controls"><span class="bp3-popover-target"><span class="rm-bullet"><span class="rm-bullet__inner"></span></span></span></div>
+           <div class="rm-block-text">卡片拼接：从卡片到文章</div>
+         </div>
+         <div class="rm-block-children">
+
+           <!-- L3: 卡片扩写 (normal block) -->
+           <div class="roam-block-container">
+             <div class="rm-block-main" data-testid="kuoxie">
+               <div class="controls"><span class="bp3-popover-target"><span class="rm-bullet"><span class="rm-bullet__inner"></span></span></span></div>
+               <div class="rm-block-text">卡片扩写实现从一个词汇到一个段落，卡片拼接则是从卡片到文章。</div>
+             </div>
+             <div class="rm-block-children">
+
+               <!-- L4: normal grandchild -- the ACTIVE / edited block. Gives a
+                    normal->normal hop (the previously-working common case) as a
+                    no-regression control alongside the heading hops. -->
+               <div class="roam-block-container">
+                 <div class="rm-block-main" data-testid="xijie">
+                   <div class="controls"><span class="bp3-popover-target"><span class="rm-bullet"><span class="rm-bullet__inner"></span></span></span></div>
+                   <div class="rm-block-text" data-testid="active-text">基础拼接：并列；推进</div>
+                 </div>
+               </div>
+
+             </div>
+           </div>
+
+         </div>
+       </div>
+
+     </div>
+   </div>
+
+  </div>
+ </div>
+</div>
+
+<script type="module">
+  // expose the real extension functions for the Playwright test
+  import { addReferencePath, removeReferencePath, addStyle, internals } from '/extension.js';
+  window.__rp = { addReferencePath, removeReferencePath, addStyle, internals };
+  window.__rpReady = true;
+</script>
+</body>
+</html>

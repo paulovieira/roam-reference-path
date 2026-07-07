@@ -284,7 +284,7 @@ function initializeSettings() {
 	panelConfig.settings.push({
 		id: 'lineTopOffset',
 		name: 'Lines: top offset (ADVANCED)',
-		description: 'Use a value different from auto only if the line seems out of place vertically. Recommended values are between 9.5px and 10.5px (depends on the line width).',
+		description: 'Leave as auto: the offset is measured automatically from the bullet, so the line stays aligned on headings and tall blocks. Use an explicit value only if the line still seems out of place vertically.',
 		action: {
 			type: 'select',
 			items: ['auto', '6.5px', '7.0px', '7.5px', '8px', '8.5px', '9px', '9.5px', '10px', '10.5px', '11px', '11.5px', '12.0px', '12.5px'],
@@ -295,7 +295,7 @@ function initializeSettings() {
 	panelConfig.settings.push({
 		id: 'lineLeftOffset',
 		name: 'Lines: left offset (ADVANCED)',
-		description: 'Use a value different from auto only if the line seems out of place horizontally. Recommended values are between 5px and 6px (depends on the line width).',
+		description: 'Leave as auto: the offset is measured automatically from the bullet. Use an explicit value only if the line seems out of place horizontally.',
 		action: {
 			type: 'select',
 			items: ['auto', '3.5px', '4px', '4.5px', '5px', '5.5px', '6px', '6.5px', '7px', '7.5px', '8px', '8.5px'],
@@ -483,6 +483,10 @@ function addStyle() {
 
 	if (internals.settingsCached.lineColorHex !== 'disabled') {
 		textContent += `
+			[data-reference-path-has-style] > div.controls span.bp3-popover-target {
+				position: relative;
+			}
+
 			[data-reference-path-has-style] > div.controls span.bp3-popover-target::before {
 				border-color: var(--${extensionId}-line-color);
 				border-width: var(--${extensionId}-line-width);
@@ -726,15 +730,8 @@ function addReferencePath(blockList, el, isHover = false) {
 	let { lineColorHex, lineColorHoverHex, lineRoundness, lineWidth, lineStyle, lineTopOffset, lineLeftOffset } = internals.settingsCached;
 	let blockPrevious = null;
 
-	if (lineColorHex !== 'disabled') {
-		if (lineTopOffset === 'auto') {
-			lineTopOffset = getLineTopOffsetAuto(lineWidth);
-		}
-
-		if (lineLeftOffset === 'auto') {
-			lineLeftOffset = getLineLeftOffsetAuto(lineWidth);
-		}
-	}
+	// note: when lineTopOffset/lineLeftOffset are 'auto' they are resolved per-block
+	// inside the loop, using the measured bullet geometry (see below)
 
 	let iterationCount = 0, iterationLimit = 99;
 	for(;;) {
@@ -830,30 +827,54 @@ function addReferencePath(blockList, el, isHover = false) {
 			else {
 				// reference: https://developer.mozilla.org/en-US/docs/Web/API/Element/getBoundingClientRect
 
-				let bboxCurrent = blockEl.getBoundingClientRect()
-				let bboxPrevious = blockPrevious.getBoundingClientRect()
+				// measure the actual bullet elements instead of the block's top-left corner
+				// plus a fixed offset; this keeps the connector aligned regardless of block
+				// height - in particular for heading blocks (h1/h2/h3) and blocks with tall
+				// embeds/images, where the bullet centre is far from `blockTop + <constant>`
 
-				// normally we have boxWidth > 0 and boxHeight > 0, but there are some cases in which 
-				// boxHeight is 0 (embedded blocks)
+				let parentBullet = blockEl.querySelector('span.bp3-popover-target');
+				let childBullet = blockPrevious.querySelector('span.bp3-popover-target');
 
-				// TODO: in RTL languages this logic must be inverted somehow
+				if (parentBullet != null && childBullet != null) {
 
-				let boxWidthNumeric = bboxPrevious.x - bboxCurrent.x;
-				let boxHeightNumeric = bboxPrevious.y - bboxCurrent.y;
+					let parentBox = parentBullet.getBoundingClientRect();
+					let childBox = childBullet.getBoundingClientRect();
 
-				if (boxWidthNumeric > 0 && boxHeightNumeric > 0) {
-					blockEl.style.setProperty(`--${extensionId}-line-width`, `${lineWidth}`);
-					blockEl.style.setProperty(`--${extensionId}-line-color`, isHover ? lineColorHoverHex : lineColorHex);
-					blockEl.style.setProperty(`--${extensionId}-line-style`, lineStyle);
-					blockEl.style.setProperty(`--${extensionId}-line-roundness`, `${lineRoundness}`);
-					blockEl.style.setProperty(`--${extensionId}-line-top-offset`, `${lineTopOffset}`);
-					blockEl.style.setProperty(`--${extensionId}-line-left-offset`, `${lineLeftOffset}`);
+					let parentCenterX = parentBox.x + parentBox.width / 2;
+					let parentCenterY = parentBox.y + parentBox.height / 2;
+					let childCenterX = childBox.x + childBox.width / 2;
+					let childCenterY = childBox.y + childBox.height / 2;
 
-					let boxWidth = `${boxWidthNumeric}px`;
-					let boxHeight = `${boxHeightNumeric}px`;
+					// the connector goes from the parent bullet centre down/right to the child
+					// bullet centre; the ::before is positioned relative to the parent bullet
+					// (addStyle marks span.bp3-popover-target as position:relative)
 
-					blockEl.style.setProperty(`--${extensionId}-box-width`, `${boxWidth}`);
-					blockEl.style.setProperty(`--${extensionId}-box-height`, `${boxHeight}`);			
+					let boxWidthNumeric = childCenterX - parentCenterX;
+					let boxHeightNumeric = childCenterY - parentCenterY;
+
+					// normally we have boxWidth > 0 and boxHeight > 0, but there are some cases in which
+					// boxHeight is 0 (embedded blocks)
+
+					// TODO: in RTL languages this logic must be inverted somehow
+
+					if (boxWidthNumeric > 0 && boxHeightNumeric > 0) {
+
+						// 'auto' anchors the connector corner at the parent bullet centre; an
+						// explicit value (the ADVANCED settings) still overrides it for fine tuning
+
+						let topOffset = (lineTopOffset === 'auto') ? `${parentBox.height / 2}px` : lineTopOffset;
+						let leftOffset = (lineLeftOffset === 'auto') ? `${parentBox.width / 2}px` : lineLeftOffset;
+
+						blockEl.style.setProperty(`--${extensionId}-line-width`, `${lineWidth}`);
+						blockEl.style.setProperty(`--${extensionId}-line-color`, isHover ? lineColorHoverHex : lineColorHex);
+						blockEl.style.setProperty(`--${extensionId}-line-style`, lineStyle);
+						blockEl.style.setProperty(`--${extensionId}-line-roundness`, `${lineRoundness}`);
+						blockEl.style.setProperty(`--${extensionId}-line-top-offset`, topOffset);
+						blockEl.style.setProperty(`--${extensionId}-line-left-offset`, leftOffset);
+
+						blockEl.style.setProperty(`--${extensionId}-box-width`, `${boxWidthNumeric}px`);
+						blockEl.style.setProperty(`--${extensionId}-box-height`, `${boxHeightNumeric}px`);
+					}
 				}
 			}
 		}
@@ -906,37 +927,6 @@ function removeReferencePath(blockList) {
 	blockList.length = 0;
 }
 
-function getLineTopOffsetAuto(lineWidth) {
-
-	lineWidth = parseFloat(lineWidth);
-	let lineTopOffset = '';
-
-	if (internals.installedExtensions.roamStudio) {
-		if (lineWidth === 1) {
-			lineTopOffset = '7.0px';
-		}
-		else if (lineWidth === 2) {
-			lineTopOffset = '7.5px';
-		}
-		else if (lineWidth === 3) {
-			lineTopOffset = '8.0px';
-		}		
-	}
-	else {
-		if (lineWidth === 1) {
-			lineTopOffset = '9.5px';
-		}
-		else if (lineWidth === 2) {
-			lineTopOffset = '10px';
-		}
-		else if (lineWidth === 3) {
-			lineTopOffset = '10.5px';
-		}		
-	}
-
-	return lineTopOffset;
-}
-
 function getTargetKey({ target }) {
 
 	let targetKey = '';
@@ -952,24 +942,6 @@ function getTargetKey({ target }) {
 	}
 
 	return targetKey;
-}
-
-function getLineLeftOffsetAuto(lineWidth, bulletScaleFactor) {
-
-	lineWidth = parseFloat(lineWidth);
-	let lineLeftOffset = '';
-
-	if (lineWidth === 1) {
-		lineLeftOffset = '6px';
-	}
-	else if (lineWidth === 2) {
-		lineLeftOffset = '5.5px';
-	}
-	else if (lineWidth === 3) {
-		lineLeftOffset = '5px';
-	}
-
-	return lineLeftOffset;
 }
 
 function startPermanentObserver({ target }) {
@@ -1128,6 +1100,10 @@ export default {
 	onload,
 	onunload
 };
+
+// named exports used only by the automated test harness (test/reference-path.spec.js);
+// Roam Depot loads the default export, so these have no effect on the extension at runtime
+export { addReferencePath, removeReferencePath, addStyle, internals };
 
 
 // https://tailwindcss.com/docs/customizing-colors

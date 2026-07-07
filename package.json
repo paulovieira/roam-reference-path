@@ -1,0 +1,12 @@
+{
+  "name": "roam-reference-path",
+  "version": "1.0.0",
+  "description": "A Roam Research extension that implements the reference path for the active block being edited.",
+  "private": true,
+  "scripts": {
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.48.0"
+  }
+}
