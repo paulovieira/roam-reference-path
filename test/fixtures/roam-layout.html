@@ -1,0 +1,50 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>reference-path layout fixture</title>
+<style>
+  /* Models Roam: the bullet (span.bp3-popover-target) is position:absolute and
+     lives in the gutter, OUT of the text flow. If the extension forces
+     position:relative on it, the bullet is pulled back into the flow and pushes
+     the block text to the right (the reported "母block排版改变" bug). */
+  * { box-sizing: content-box; }
+  body { margin: 0; padding: 20px; font-family: sans-serif; }
+  .rm-block-children { margin-left: 24px; }
+  .rm-block-main { position: relative; }
+  .rm-block-main > .controls { display: inline-block; vertical-align: top; }
+  .controls span.bp3-popover-target {
+    position: absolute; left: 2px; top: 5px;
+    width: 12px; height: 12px;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .controls span.rm-bullet { display: flex; align-items: center; justify-content: center; width: 12px; height: 12px; }
+  .controls span.rm-bullet__inner { width: 6px; height: 6px; border-radius: 50%; background: #a3a3a3; }
+  .rm-block-text { display: inline; line-height: 20px; font-size: 14px; }
+</style>
+</head>
+<body>
+<div class="roam-main">
+ <div class="rm-article-wrapper">
+  <div class="roam-article">
+
+   <div class="roam-block-container">
+     <div class="rm-block-main" data-testid="parent"><div class="controls"><span class="bp3-popover-target"><span class="rm-bullet"><span class="rm-bullet__inner"></span></span></span></div><div class="rm-block-text" data-testid="parent-text">母 block 的一段文字，用来检测高亮后排版是否发生位移</div></div>
+     <div class="rm-block-children">
+       <div class="roam-block-container">
+         <div class="rm-block-main" data-testid="child"><div class="controls"><span class="bp3-popover-target"><span class="rm-bullet"><span class="rm-bullet__inner"></span></span></span></div><div class="rm-block-text" data-testid="child-text">子 block（被点击/编辑的块）</div></div>
+       </div>
+     </div>
+   </div>
+
+  </div>
+ </div>
+</div>
+
+<script type="module">
+  import { addReferencePath, removeReferencePath, addStyle, internals } from '/extension.js';
+  window.__rp = { addReferencePath, removeReferencePath, addStyle, internals };
+  window.__rpReady = true;
+</script>
+</body>
+</html>

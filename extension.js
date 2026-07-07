@@ -483,10 +483,6 @@ function addStyle() {
 
 	if (internals.settingsCached.lineColorHex !== 'disabled') {
 		textContent += `
-			[data-reference-path-has-style] > div.controls span.bp3-popover-target {
-				position: relative;
-			}
-
 			[data-reference-path-has-style] > div.controls span.bp3-popover-target::before {
 				border-color: var(--${extensionId}-line-color);
 				border-width: var(--${extensionId}-line-width);
@@ -899,11 +895,20 @@ function addReferencePath(blockList, el, isHover = false) {
 
 					if (boxWidthNumeric > 0 && boxHeightNumeric > 0) {
 
-						// 'auto' anchors the connector corner at the parent bullet centre; an
-						// explicit value (the ADVANCED settings) still overrides it for fine tuning
+						// the ::before is absolutely positioned, so it is placed relative to its
+						// containing block: the bullet itself if Roam positions it (it does -
+						// the bullet is position:absolute in the gutter), otherwise the bullet's
+						// offset parent. we must NOT force position on the bullet here: overriding
+						// Roam's absolute bullet with position:relative pulls it back into the flow
+						// and reflows the whole block. instead we measure the real containing block
+						// and offset the connector corner to the parent bullet centre relative to it.
+						// 'auto' does this; an explicit value (the ADVANCED settings) still overrides it.
 
-						let topOffset = (lineTopOffset === 'auto') ? `${parentBox.height / 2}px` : lineTopOffset;
-						let leftOffset = (lineLeftOffset === 'auto') ? `${parentBox.width / 2}px` : lineLeftOffset;
+						let containingBlock = (getComputedStyle(parentBullet).position !== 'static') ? parentBullet : parentBullet.offsetParent;
+						let originRect = (containingBlock || blockEl).getBoundingClientRect();
+
+						let topOffset = (lineTopOffset === 'auto') ? `${parentCenterY - originRect.top}px` : lineTopOffset;
+						let leftOffset = (lineLeftOffset === 'auto') ? `${parentCenterX - originRect.left}px` : lineLeftOffset;
 
 						blockEl.style.setProperty(`--${extensionId}-line-width`, `${lineWidth}`);
 						blockEl.style.setProperty(`--${extensionId}-line-color`, isHover ? lineColorHoverHex : lineColorHex);
