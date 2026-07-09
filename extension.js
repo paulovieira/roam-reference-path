@@ -643,11 +643,12 @@ function startTemporaryObserver ({ target }) {
 
 	let { observer, observerId } = startObserver({ target, callback: temporaryObserverCallback, options });
 
-	// the reference path line is positioned from getBoundingClientRect measurements
+	// TO BE CONSIDERED: the reference path line is positioned from getBoundingClientRect measurements
 	// taken at draw time; scrolling does not trigger a DOM mutation, so without this
 	// the line drifts out of alignment with the bullets after the page is scrolled.
 	// recompute it (throttled to one redraw per frame) while a path is shown.
 
+	/*
 	let scrollRedrawScheduled = false;
 
 	let onScroll = function onScroll () {
@@ -681,6 +682,7 @@ function startTemporaryObserver ({ target }) {
 	// scrolling from any scroll container in the page (main view and sidebar)
 
 	window.addEventListener('scroll', onScroll, { capture: true, passive: true });
+	*/
 
 	internals.cleaners.push({
 		observerId,
@@ -689,7 +691,7 @@ function startTemporaryObserver ({ target }) {
 			log('cleaner for temporary observer', { observerId });
 
 			observer.disconnect();
-			window.removeEventListener('scroll', onScroll, true);
+			// window.removeEventListener('scroll', onScroll, true);
 			delete target.dataset.referencePathObserverId;  // might not work in safari <= 10?
 			removeReferencePath(blockList);
 			removeMouseHoverListeners(target);

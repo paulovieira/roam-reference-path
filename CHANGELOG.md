@@ -1,4 +1,4 @@
-## [Unreleased]
+## 2026-07-09
 
 ### Fixed
  - the reference path line is now aligned with the bullet on heading blocks (h1/h2/h3) and on blocks with tall content (embeds/images). The line offset and endpoints are measured from the actual bullet elements instead of a fixed constant that assumed a single-line text block. This also removes the need for the Roam-Studio-specific offset constants.
@@ -8,7 +8,7 @@
 ### Removed
  - the "References: font weight" setting. Bolding references changes their width and reflows the block; the colour emphasis alone marks them without moving anything.
 
-## [1] -- 2022-07-26
+## 2022-07-26
 
 ### Added
  - initial version
