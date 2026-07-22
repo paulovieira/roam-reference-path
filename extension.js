@@ -223,6 +223,9 @@ function MainColorPicker() {
 	let selectedColor = internals.colorOptions.includes(color) ? color : internals.settingsDefault.color;
 	let selectedColorPreviewHex = getColorPreviewHex({ color: selectedColor });
 
+	// use native button semantics instead of listbox/menu roles: those composite
+	// widgets require a keyboard model that this lightweight picker does not implement;
+
 	let colorOptions = internals.colorOptions.map(value => {
 
 		let isSelected = value === selectedColor;
@@ -230,11 +233,10 @@ function MainColorPicker() {
 		return React.createElement(
 			'button',
 			{
-				'aria-selected': isSelected,
+				'aria-label': `${value}${isSelected ? ', selected' : ''}`,
 				className: `bp3-menu-item roam-reference-path-color-picker__option${isSelected ? ' bp3-active' : ''}`,
 				key: value,
 				onClick: () => { selectColor(value); },
-				role: 'option',
 				type: 'button',
 			},
 			React.createElement('span', {
@@ -255,7 +257,6 @@ function MainColorPicker() {
 			'button',
 			{
 				'aria-expanded': isOpen,
-				'aria-haspopup': 'listbox',
 				'aria-label': `Select main color. Current color: ${selectedColor}.`,
 				className: 'bp3-button bp3-fill roam-reference-path-color-picker__trigger',
 				onClick: () => { setIsOpen(isOpen => !isOpen); },
@@ -273,8 +274,9 @@ function MainColorPicker() {
 		isOpen && React.createElement(
 			'div',
 			{
+				'aria-label': 'Main color options',
 				className: 'bp3-menu bp3-elevation-3 roam-reference-path-color-picker__menu',
-				role: 'listbox',
+				role: 'group',
 			},
 			colorOptions
 		)
@@ -605,9 +607,15 @@ function removeStyle() {
 	// we assume no one else has added a <style data-extension-id="reference-path-28373625"> before, which seems
 	// to be a strong hypothesis
 	// only reset settings-driven styles; static picker presentation is loaded through
-	// extension.css;
+	// extension.css. Versions before the picker marker used the title below to identify
+	// their dynamic styles, so keep recognizing that exact legacy signature too;
 
-	let extensionStyles = Array.from(document.head.querySelectorAll(`style[data-extension-id^="${internals.extensionId}"][data-reference-path-style="dynamic"]`));
+	let dynamicStyleSelector = [
+		`style[data-extension-id^="${internals.extensionId}"][data-reference-path-style="dynamic"]`,
+		`style[data-extension-id^="${internals.extensionId}"][data-title="dynamic styles added by the ${internals.extensionId} extension"]`,
+	].join(', ');
+
+	let extensionStyles = Array.from(document.head.querySelectorAll(dynamicStyleSelector));
 
 	for (let styleEl of extensionStyles) {
 		styleEl.remove()	
