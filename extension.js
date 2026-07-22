@@ -57,6 +57,34 @@ internals.settingsDefault = {
 	lineLeftOffset: 'auto',
 };
 
+// keep these values compatible with the original select items: they are persisted
+// in user settings and passed to internals.tailwindColors below;
+
+internals.colorOptions = [
+	'gray',
+	'slate (gray variant)',
+	'zinc (gray variant)',
+	'neutral (gray variant)',
+	'stone (gray variant)',
+	'red',
+	'orange',
+	'amber',
+	'yellow',
+	'lime',
+	'green',
+	'emerald',
+	'teal',
+	'cyan',
+	'sky',
+	'blue',
+	'indigo',
+	'violet',
+	'purple',
+	'fuchsia',
+	'pink',
+	'rose',
+];
+
 internals.installedExtensions = {
 	roamStudio: false,  // https://github.com/rcvd/RoamStudio
 };
@@ -155,6 +183,106 @@ function log() {
 	console.log(`${internals.extensionId} ${Date.now()}]`, ...arguments);
 }
 
+function MainColorPicker() {
+
+	// native select options do not provide a reliable way to render a swatch; this
+	// component preserves the original setting value and adds the visual affordance;
+
+	let { extensionAPI } = internals;
+	let initialColor = extensionAPI.settings.get('color') || internals.settingsDefault.color;
+	let [color, setColor] = React.useState(initialColor);
+	let [isOpen, setIsOpen] = React.useState(false);
+	let pickerRef = React.useRef(null);
+
+	React.useEffect(() => {
+
+		let closeWhenClickingOutside = ev => {
+
+			if (pickerRef.current != null && !pickerRef.current.contains(ev.target)) {
+				setIsOpen(false);
+			}
+		};
+
+		document.addEventListener('mousedown', closeWhenClickingOutside);
+
+		return () => {
+			document.removeEventListener('mousedown', closeWhenClickingOutside);
+		};
+	}, []);
+
+	let selectColor = value => {
+
+		// reuse the original key/value contract so existing saved selections keep working;
+
+		extensionAPI.settings.set('color', value);
+		updateSettingsCached({ key: 'color', value });
+		setColor(value);
+		setIsOpen(false);
+	};
+
+	let selectedColor = internals.colorOptions.includes(color) ? color : internals.settingsDefault.color;
+	let selectedColorPreviewHex = getColorPreviewHex({ color: selectedColor });
+
+	// use native button semantics instead of listbox/menu roles: those composite
+	// widgets require a keyboard model that this lightweight picker does not implement;
+
+	let colorOptions = internals.colorOptions.map(value => {
+
+		let isSelected = value === selectedColor;
+
+		return React.createElement(
+			'button',
+			{
+				'aria-label': `${value}${isSelected ? ', selected' : ''}`,
+				className: `bp3-menu-item roam-reference-path-color-picker__option${isSelected ? ' bp3-active' : ''}`,
+				key: value,
+				onClick: () => { selectColor(value); },
+				type: 'button',
+			},
+			React.createElement('span', {
+				'className': 'roam-reference-path-color-picker__swatch',
+				style: { backgroundColor: getColorPreviewHex({ color: value }) },
+			}),
+			React.createElement('span', null, value)
+		);
+	});
+
+	return React.createElement(
+		'div',
+		{
+			className: 'roam-reference-path-color-picker',
+			ref: pickerRef,
+		},
+		React.createElement(
+			'button',
+			{
+				'aria-expanded': isOpen,
+				'aria-label': `Select main color. Current color: ${selectedColor}.`,
+				className: 'bp3-button bp3-fill roam-reference-path-color-picker__trigger',
+				onClick: () => { setIsOpen(isOpen => !isOpen); },
+				type: 'button',
+			},
+			React.createElement('span', { className: 'roam-reference-path-color-picker__trigger-content' },
+				React.createElement('span', {
+					'className': 'roam-reference-path-color-picker__swatch',
+					style: { backgroundColor: selectedColorPreviewHex },
+				}),
+				React.createElement('span', null, selectedColor)
+			),
+			React.createElement('span', { 'aria-hidden': true }, '▾')
+		),
+		isOpen && React.createElement(
+			'div',
+			{
+				'aria-label': 'Main color options',
+				className: 'bp3-menu bp3-elevation-3 roam-reference-path-color-picker__menu',
+				role: 'group',
+			},
+			colorOptions
+		)
+	);
+}
+
 function initializeSettings() {
 
 	log('initializeSettings');
@@ -167,14 +295,10 @@ function initializeSettings() {
 	panelConfig.settings.push({
 		id: 'color',
 		name: 'Main color',
-		// description: '...',
 		action: {
-			type: 'select',
-			// roam uses tailwindcss, but the full color palette is not available in the css loaded by roam; 
-			// so we add  the full palette manually in internals.tailwindColors (at the bottom);
-			items: ['gray', 'slate (gray variant)', 'zinc (gray variant)', 'neutral (gray variant)', 'stone (gray variant)', 'red', 'orange', 'amber', 'yellow', 'lime', 'green', 'emerald', 'teal', 'cyan', 'sky', 'blue', 'indigo', 'violet', 'purple', 'fuchsia', 'pink', 'rose'],
-			onChange: value => { updateSettingsCached({ key: 'color', value }) },
-		}		
+			type: 'reactComponent',
+			component: MainColorPicker,
+		}
 	});
 
 	panelConfig.settings.push({
@@ -360,9 +484,15 @@ function updateSettingsCached({ key, value, resetStyle: _resetStyle }) {
 	log('updateSettingsCached', { key, value, 'internals.settingsCached': internals.settingsCached });
 }
 
-function getColorHex({ shade }) {
+function getColorPreviewHex({ color }) {
 
-	let { color } = internals.settingsCached;
+	// use one fixed shade to identify the hue without implying that this is the
+	// final shade used by bullets, references or lines;
+
+	return getColorHex({ color, shade: '500' });
+}
+
+function getColorHex({ color = internals.settingsCached.color, shade }) {
 
 	if (shade === 'disabled' || color == null) { return 'disabled' } 
 
@@ -460,6 +590,11 @@ function addStyle() {
 
 	extensionStyle.textContent = textContent;
 	extensionStyle.dataset.extensionId = `${extensionId}-${Date.now()}`;
+
+	// distinguish dynamic styles from static picker CSS in extension.css; resetStyle()
+	// must only remove styles that depend on the current settings;
+
+	extensionStyle.dataset.referencePathStyle = 'dynamic';
 	extensionStyle.dataset.title = `dynamic styles added by the ${extensionId} extension`;
 
 	document.head.appendChild(extensionStyle);
@@ -471,8 +606,16 @@ function removeStyle() {
 
 	// we assume no one else has added a <style data-extension-id="reference-path-28373625"> before, which seems
 	// to be a strong hypothesis
+	// only reset settings-driven styles; static picker presentation is loaded through
+	// extension.css. Versions before the picker marker used the title below to identify
+	// their dynamic styles, so keep recognizing that exact legacy signature too;
 
-	let extensionStyles = Array.from(document.head.querySelectorAll(`style[data-extension-id^="${internals.extensionId}"]`));
+	let dynamicStyleSelector = [
+		`style[data-extension-id^="${internals.extensionId}"][data-reference-path-style="dynamic"]`,
+		`style[data-extension-id^="${internals.extensionId}"][data-title="dynamic styles added by the ${internals.extensionId} extension"]`,
+	].join(', ');
+
+	let extensionStyles = Array.from(document.head.querySelectorAll(dynamicStyleSelector));
 
 	for (let styleEl of extensionStyles) {
 		styleEl.remove()	
