@@ -557,7 +557,7 @@ function startTemporaryObserver ({ target }) {
 
 	// reference: https://developer.mozilla.org/en-US/docs/Web/API/MutationObserver/MutationObserver
 
-	let temporaryObserverCallback = function temporaryObserverCallback (mutationList) {
+	let onTargetMutations = function onTargetMutations (mutationList) {
 
 		// return early 1: typing in the active block (in edit mode)
 
@@ -629,6 +629,20 @@ function startTemporaryObserver ({ target }) {
 		}
 	};
 
+	// note: if an exception escapes an observer callback, the mutation records that were not
+	// processed yet are dropped silently (they are not delivered again); we don't want an
+	// unexpected dom to be able to kill the extension like that, so we log and move on
+
+	let temporaryObserverCallback = function temporaryObserverCallback (mutationList) {
+
+		try {
+			onTargetMutations(mutationList);
+		}
+		catch (err) {
+			console.error(`${internals.extensionId}] error in the temporary observer callback (${targetKey})`, err);
+		}
+	};
+
 	// for the temporary observers we want to monitor the target element and the entire subtree 
 	// of elements rooted at target; we also use the characterData option to observe changes in 
 	// code editor blocks (useful in particular when syntax highlighting is set to "plain text")
@@ -686,6 +700,9 @@ function startTemporaryObserver ({ target }) {
 
 	internals.cleaners.push({
 		observerId,
+		type: 'temporary',
+		targetKey,
+		target,
 		handler: () => {
 
 			log('cleaner for temporary observer', { observerId });
@@ -948,53 +965,19 @@ function startPermanentObserver({ target }) {
 
 	let permanentObserverCallback = function permanentObserverCallback (mutationList) {
 
-		for (let mutation of mutationList) {
+		// we don't interpret the mutation records here: we only need to know that something changed
+		// inside the permanent container, then we ask the dom again which temporary containers exist
+		// (see syncTemporaryObservers below); looking for a specific dom shape in the records is too
+		// brittle: roam may add something before the article wrapper, and it is not guaranteed either 
+		// that the old container is removed before the new one is added
 
-			let wasOpened = false;
-			let wasClosed = false;
+		// (see also the note about exceptions in startTemporaryObserver)
 
-			if (targetKey === 'mainView') {
-
-				// a page is opened/closed in the main view when this element is added/removed: target > div.roam-body-main > div.rm-article-wrapper
-
-				wasOpened = true
-					&& mutation.addedNodes.length > 0
-					&& mutation.addedNodes[0].children.length > 0
-					&& mutation.addedNodes[0].children[0].matches(internals.selector.temporary.mainView);
-
-				wasClosed = true
-					&& mutation.removedNodes.length > 0
-					&& mutation.removedNodes[0].children.length > 0
-					&& mutation.removedNodes[0].children[0].matches(internals.selector.temporary.mainView);
-
-				// debugger;
-				if (wasOpened) {
-					startTemporaryObserver({ target: mutation.addedNodes[0].children[0] });
-				}
-
-				if (wasClosed) {
-					stopObserver({ target: mutation.removedNodes[0].children[0] });
-				}								
-			}
-			else {
-				wasOpened = true
-					&& mutation.addedNodes.length > 0
-					&& mutation.addedNodes[0].matches(internals.selector.temporary.sidebar);
-
-				wasClosed = true
-					&& mutation.removedNodes.length > 0
-					&& mutation.removedNodes[0].matches(internals.selector.temporary.sidebar);
-
-				// debugger;
-				if (wasOpened) {
-					startTemporaryObserver({ target: mutation.addedNodes[0] });
-				}
-
-				if (wasClosed) {
-					stopObserver({ target: mutation.removedNodes[0] });
-				}
-			}
-
+		try {
+			syncTemporaryObservers({ permanentTarget: target, targetKey });
+		}
+		catch (err) {
+			console.error(`${internals.extensionId}] error in the permanent observer callback (${targetKey})`, err);
 		}
 	};
 
@@ -1009,6 +992,9 @@ function startPermanentObserver({ target }) {
 
 	internals.cleaners.push({ 
 		observerId, 
+		type: 'permanent',
+		targetKey,
+		target,
 		handler: () => { 
 
 			log('cleaner for permanent observer', { observerId });
@@ -1018,14 +1004,41 @@ function startPermanentObserver({ target }) {
 		}
 	});
 	
-	// if we already have the temporary container, initializar right away the temporary observer
+	// if we already have the temporary container, initialize right away the temporary observer
 
-	let temporaryTarget = document.querySelector(internals.selector.temporary[targetKey]);
-
-	if (temporaryTarget != null) {
-		startTemporaryObserver({ target: temporaryTarget });	
-	}
+	syncTemporaryObservers({ permanentTarget: target, targetKey });
 	
+}
+
+// keep one temporary observer per temporary container found inside the permanent container; the
+// temporary containers are searched in the dom (instead of being extracted from the mutation
+// records), so this doesn't depend on how roam happens to render the tree when a page is opened
+// or closed; called when the permanent observer is started and on every change it detects
+
+function syncTemporaryObservers({ permanentTarget, targetKey }) {
+
+	let temporaryTargets = Array.from(permanentTarget.querySelectorAll(internals.selector.temporary[targetKey]));
+
+	// start the observers that are missing (startTemporaryObserver marks the element with a dataset
+	// property, so the ones already running are skipped)
+
+	for (let el of temporaryTargets) {
+		startTemporaryObserver({ target: el });
+	}
+
+	// ... and stop the ones whose container left the document (example: the temporary container of
+	// the page we just left); during a page transition the old and the new container can coexist
+	// for a moment, which is not a problem: the old one is dropped as soon as it leaves the document
+
+	internals.cleaners = internals.cleaners.filter(cleaner => {
+
+		if (cleaner.type !== 'temporary') { return true }
+		if (cleaner.target != null && cleaner.target.isConnected) { return true }
+
+		cleaner.handler();
+
+		return false;
+	});
 }
 
 // start one observer (abstract)
